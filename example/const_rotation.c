@@ -20,13 +20,11 @@ int main()
 
 	rbp_body cube;
 	cube.Minv = 1.0f;
-
 	cube.Ibinv = MatrixIdentity();
-
 	cube.pos = (Vector3) {0.0f, 0.0f, 0.0f};
 	cube.p = (Vector3) {0.0f, 0.0f, 0.0f};
 	cube.rot = MatrixIdentity();
-	cube.w = (Vector3) {3.0f, 1.0f, 0.0f};
+	cube.L = (Vector3) {2.0f, 1.0f, 0.0f};
 
 	Camera3D camera = { 0 };
 	camera.position = Vector3Add(cube.pos, (Vector3) {-1.0f, 2.0f, -5.0f});
@@ -48,9 +46,7 @@ int main()
 		time = now;
 
 		while (time_pool >= dt) {
-			cube.pos = Vector3Add(cube.pos, Vector3Scale(velocity(&cube), dt));
-			cube.rot = MatrixMultiply(MatrixRotate(cube.w,
-			                          Vector3Length(cube.w)*dt), cube.rot);
+			cube.rot = drotdt(&cube, dt);
 			time_pool -= dt;
 		}
 

@@ -40,8 +40,20 @@ typedef struct rbp_body {
 	Vector3 pos;
 	Vector3 p;
 	Matrix rot;
-	Vector3 w;
+	Vector3 L;
 } rbp_body;
+
+/* Additional math functions */
+Vector4 MatrixVectorMultiply(Matrix m, Vector4 v)
+{
+	Vector4 result;
+	result.x = v.x * m.m0 + v.y * m.m4 + v.z * m.m8 + v.w * m.m12;
+	result.y = v.x * m.m1 + v.y * m.m5 + v.z * m.m9 + v.w * m.m13;
+	result.z = v.x * m.m2 + v.y * m.m6 + v.z * m.m10 + v.w * m.m14;
+	result.w = v.x * m.m3 + v.y * m.m7 + v.z * m.m11 + v.w * m.m15;
+
+	return result;
+}
 
 /* Auxiliary variables */
 Vector3 velocity(rbp_body *b)
@@ -55,9 +67,17 @@ Matrix Iinv(rbp_body *b)
 	return MatrixMultiply(m1, MatrixTranspose(b->rot));
 }
 
-/* new orientation */
-Matrix drotdt(rbp_body *b)
+Vector3 w(rbp_body *b)
 {
-	return MatrixMultiply(Iinv(b), b->rot);
+	Vector4 L = (Vector4) {b->L.x, b->L.y, b->L.z, 0.0f};
+	Vector4 r = MatrixVectorMultiply(Iinv(b), L);
+	return (Vector3) {r.x, r.y, r.z};
 }
 
+Matrix drotdt(rbp_body *b, float dt)
+{
+	Vector3 omega = w(b);
+	float theta = Vector3Length(omega);
+	Matrix nrot = MatrixRotate(omega, theta*dt);
+	return MatrixMultiply(nrot, b->rot);
+}
