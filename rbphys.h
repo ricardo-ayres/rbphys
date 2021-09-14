@@ -25,6 +25,9 @@ DEALINGS IN THE SOFTWARE.
 /*
 rbphys is a header only simple rigid body physics library based on raymath.
 */
+
+#include <raymath.h>
+
 typedef struct rbp_body {
 	/* inverse of mass and inverse of inertia tensor in body space */
 	float Minv;
@@ -41,13 +44,13 @@ typedef struct rbp_body {
 } rbp_body;
 
 /* Additional math functions */
-Vector3 MatrixVectorMultiply(Matrix m, Vector4 v)
+Vector4 MatrixVectorMultiply(Matrix m, Vector4 v)
 {
 	Vector4 result;
-	result.x = v.x * m11 + v.y * m12 + v.z * m13 + v.w * m14;
-	result.y = v.x * m21 + v.y * m22 + v.z * m23 + v.w * m24;
-	result.z = v.x * m31 + v.y * m32 + v.z * m33 + v.w * m34;
-	result.w = v.x * m41 + v.y * m42 + v.z * m43 + v.w * m44;
+	result.x = v.x * m.m0 + v.y * m.m4 + v.z * m.m8 + v.w * m.m12;
+	result.y = v.x * m.m1 + v.y * m.m5 + v.z * m.m9 + v.w * m.m13;
+	result.z = v.x * m.m2 + v.y * m.m6 + v.z * m.m10 + v.w * m.m14;
+	result.w = v.x * m.m3 + v.y * m.m7 + v.z * m.m11 + v.w * m.m15;
 }
 
 /* Auxiliary variables */
@@ -71,7 +74,7 @@ Vector4 ang_velocity(rbp_body *b)
 }
 
 /* new orientation */
-Quaternion ddtrot(rbp_body *b)
+Quaternion drotdt(rbp_body *b)
 {
 	return QuaternionMultiply(ang_velocity(b), b->rot);
 }
