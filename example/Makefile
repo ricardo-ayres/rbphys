@@ -23,6 +23,6 @@ const_rotation: ${OBJ}
 
 clean:
 	@echo cleaning
-	@rm -f flatspin ${OBJ}
+	@rm -f const_rotation ${OBJ}
 
 .PHONY: all options clean
