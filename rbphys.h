@@ -39,19 +39,9 @@ typedef struct rbp_body {
 	 */
 	Vector3 pos;
 	Vector3 p;
-	Quaternion rot;
-	Vector4 L;
+	Matrix rot;
+	Vector3 w;
 } rbp_body;
-
-/* Additional math functions */
-Vector4 MatrixVectorMultiply(Matrix m, Vector4 v)
-{
-	Vector4 result;
-	result.x = v.x * m.m0 + v.y * m.m4 + v.z * m.m8 + v.w * m.m12;
-	result.y = v.x * m.m1 + v.y * m.m5 + v.z * m.m9 + v.w * m.m13;
-	result.z = v.x * m.m2 + v.y * m.m6 + v.z * m.m10 + v.w * m.m14;
-	result.w = v.x * m.m3 + v.y * m.m7 + v.z * m.m11 + v.w * m.m15;
-}
 
 /* Auxiliary variables */
 Vector3 velocity(rbp_body *b)
@@ -61,21 +51,13 @@ Vector3 velocity(rbp_body *b)
 
 Matrix Iinv(rbp_body *b)
 {
-	Matrix rot = QuaternionToMatrix(QuaternionNormalize(b->rot));
-	Matrix m1 = MatrixMultiply(rot, b->Ibinv);
-
-	return MatrixMultiply(m1, MatrixTranspose(rot));
-}
-
-Vector4 ang_velocity(rbp_body *b)
-{
-	/* L = I*w => w = Iinv*L */
-	return MatrixVectorMultiply(Iinv(b), b->L);
+	Matrix m1 = MatrixMultiply(b->rot, b->Ibinv);
+	return MatrixMultiply(m1, MatrixTranspose(b->rot));
 }
 
 /* new orientation */
-Quaternion drotdt(rbp_body *b)
+Matrix drotdt(rbp_body *b)
 {
-	return QuaternionMultiply(ang_velocity(b), b->rot);
+	return MatrixMultiply(Iinv(b), b->rot);
 }
 
