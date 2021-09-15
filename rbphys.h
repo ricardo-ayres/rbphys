@@ -35,11 +35,12 @@ typedef struct rbp_body {
 
 	/* state:
 	 * p = linear momentum
-	 * L = angular momentum (has to be Vector4 to be compatible with Ibinv and rot)
+	 * L = angular momentum
 	 */
+
 	Vector3 pos;
 	Vector3 p;
-	Matrix rot;
+	Quaternion dir;
 	Vector3 L;
 } rbp_body;
 
@@ -56,28 +57,33 @@ Vector4 MatrixVectorMultiply(Matrix m, Vector4 v)
 }
 
 /* Auxiliary variables */
-Vector3 velocity(rbp_body *b)
+Vector3 rbp_v(rbp_body *b)
 {
 	return Vector3Scale(b->p, b->Minv);
 }
 
-Matrix Iinv(rbp_body *b)
+Matrix rbp_Iinv(rbp_body *b)
 {
-	Matrix m1 = MatrixMultiply(b->rot, b->Ibinv);
-	return MatrixMultiply(m1, MatrixTranspose(b->rot));
+	Matrix R = QuaternionToMatrix(b->dir);
+	Matrix m1 = MatrixMultiply(R, b->Ibinv);
+	return MatrixMultiply(m1, MatrixTranspose(R));
 }
 
-Vector3 w(rbp_body *b)
+Vector3 rbp_w(rbp_body *b)
 {
 	Vector4 L = (Vector4) {b->L.x, b->L.y, b->L.z, 0.0f};
-	Vector4 r = MatrixVectorMultiply(Iinv(b), L);
+	Vector4 r = MatrixVectorMultiply(rbp_Iinv(b), L);
 	return (Vector3) {r.x, r.y, r.z};
 }
 
-Matrix drotdt(rbp_body *b, float dt)
+Vector3 rbp_displace(rbp_body *b, float dt)
 {
-	Vector3 omega = w(b);
-	float theta = Vector3Length(omega);
-	Matrix nrot = MatrixRotate(omega, theta*dt);
-	return MatrixMultiply(nrot, b->rot);
+	return Vector3Add(b->pos, Vector3Scale(rbp_v(b), dt));
+}
+
+Quaternion rbp_rotate(rbp_body *b, float dt)
+{
+	Vector3 w3dt = Vector3Scale(rbp_w(b), dt);
+	Quaternion rot = QuaternionFromAxisAngle(w3dt, Vector3Length(w3dt));
+	return QuaternionNormalize(QuaternionMultiply(rot, b->dir));
 }
