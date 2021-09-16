@@ -1,9 +1,10 @@
 include config.mk
 
-SRC = const_rotation.c
+SRC = const_rotation.c top.c
 OBJ = ${SRC:.c=.o}
+BIN = ${SRC:.c=}
 
-all: options const_rotation
+all: options ${BIN}
 
 options:
 	@echo build flags:
@@ -17,12 +18,12 @@ options:
 
 ${OBJ}: config.mk
 
-const_rotation: ${OBJ}
+${BIN}: ${OBJ}
 	@echo ${CC} -o $@
-	@${CC} -o $@ ${OBJ} ${LDFLAGS}
+	@${CC} -o $@ $@.o ${LDFLAGS}
 
 clean:
 	@echo cleaning
-	@rm -f const_rotation ${OBJ}
+	@rm -f ${BIN} ${OBJ}
 
 .PHONY: all options clean

@@ -87,3 +87,14 @@ Quaternion rbp_rotate(rbp_body *b, float dt)
 	Quaternion rot = QuaternionFromAxisAngle(w3dt, Vector3Length(w3dt));
 	return QuaternionNormalize(QuaternionMultiply(rot, b->dir));
 }
+
+void rbp_force(rbp_body *b, Vector3 force, Vector3 point, float dt)
+{
+	Vector3 dp = Vector3Scale(force, dt);
+	Vector3 r = Vector3Subtract(point, b->pos);
+	Vector3 dL = Vector3CrossProduct(r, dp);
+
+	b->p = Vector3Add(b->p, dp);
+	b->L = Vector3Add(b->L, dL);
+	return;
+}
