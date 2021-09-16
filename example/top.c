@@ -41,24 +41,28 @@ int main()
 	while(!WindowShouldClose()) {
 		/* Input */
 		if (IsKeyDown(KEY_L)) {
-			/* Add angular momentum */
-			cube.L = Vector3Add(
-			    cube.L,
-			    Vector3RotateByQuaternion(
-			        (Vector3) {0.0f, 0.1f, 0.0f},
-			        cube.dir));
+			/* Increase angular momentum */
+			rbp_bspace_force(
+			    &cube,
+			    (Vector3) {1.0f, 0.0f, 0.0f},
+			    (Vector3) {0.0f, 0.0f, 1.0f},
+			    dt);
+			rbp_bspace_force(
+			    &cube,
+			    (Vector3) {-1.0f, 0.0f, 0.0f},
+			    (Vector3) {0.0f, 0.0f, -1.0f},
+			    dt);
 		}
 		if (IsKeyDown(KEY_K)) {
 			/* Simulate top contact point */
-			rbp_force(
+			rbp_wspace_force(
 			    &cube,
 			    (Vector3) {0.0f, 10.0f, 0.0f},
-			    Vector3RotateByQuaternion(Vector3Add(cube.pos, (Vector3) {0.0f, -1.0f, 0.0f}),
-			        cube.dir),
+			    rbp_chframe(&cube, (Vector3) {0.0f, -1.0f, 0.0f}),
 			    dt);
 
 			/* Simulate gravity */
-			rbp_force(&cube,
+			rbp_wspace_force(&cube,
 			    (Vector3) {0.0f, -10.0f, 0.0f},
 			    cube.pos,
 			    dt);

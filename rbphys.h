@@ -56,6 +56,11 @@ Vector4 MatrixVectorMultiply(Matrix m, Vector4 v)
 	return result;
 }
 
+Vector3 rbp_chframe(rbp_body *b, Vector3 v)
+{
+	return Vector3Add(b->pos, Vector3RotateByQuaternion(v, b->dir));
+}
+
 /* Auxiliary variables */
 Vector3 rbp_v(rbp_body *b)
 {
@@ -88,13 +93,21 @@ Quaternion rbp_rotate(rbp_body *b, float dt)
 	return QuaternionNormalize(QuaternionMultiply(rot, b->dir));
 }
 
-void rbp_force(rbp_body *b, Vector3 force, Vector3 point, float dt)
+void rbp_wspace_force(rbp_body *b, Vector3 force, Vector3 pos, float dt)
 {
 	Vector3 dp = Vector3Scale(force, dt);
-	Vector3 r = Vector3Subtract(point, b->pos);
+	Vector3 r = Vector3Subtract(pos, b->pos);
 	Vector3 dL = Vector3CrossProduct(r, dp);
 
 	b->p = Vector3Add(b->p, dp);
 	b->L = Vector3Add(b->L, dL);
+	return;
+}
+
+void rbp_bspace_force(rbp_body *b, Vector3 force, Vector3 pos, float dt)
+{
+	Vector3 wspace_force = Vector3RotateByQuaternion(force, b->dir);
+	Vector3 wspace_pos = rbp_chframe(b, pos);
+	rbp_wspace_force(b, wspace_force, wspace_pos, dt);
 	return;
 }
