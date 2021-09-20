@@ -58,8 +58,7 @@ int main()
 		time = now;
 
 		while (time_pool >= dt) {
-			float r2 = Vector3Length(sphere.pos);
-			r2 = r2*r2;
+			float r2 = Vector3DotProduct(sphere.pos, sphere.pos);
 			Vector3 g = Vector3Normalize(sphere.pos);
 			g = Vector3Scale(g, -1600.0f/r2);
 			rbp_wspace_force(&sphere, g, sphere.pos, dt);
