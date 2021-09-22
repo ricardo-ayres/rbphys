@@ -45,7 +45,8 @@ typedef struct rbp_body {
 } rbp_body;
 
 /* Additional math functions */
-Vector4 MatrixVectorMultiply(Matrix m, Vector4 v)
+Vector4
+MatrixVectorMultiply(Matrix m, Vector4 v)
 {
 	Vector4 result;
 	result.x = v.x * m.m0 + v.y * m.m4 + v.z * m.m8 + v.w * m.m12;
@@ -56,44 +57,51 @@ Vector4 MatrixVectorMultiply(Matrix m, Vector4 v)
 	return result;
 }
 
-Vector3 rbp_chframe(rbp_body *b, Vector3 v)
+Vector3
+rbp_chframe(rbp_body *b, Vector3 v)
 {
 	return Vector3Add(b->pos, Vector3RotateByQuaternion(v, b->dir));
 }
 
 /* Auxiliary variables */
-Vector3 rbp_v(rbp_body *b)
+Vector3
+rbp_v(rbp_body *b)
 {
 	return Vector3Scale(b->p, b->Minv);
 }
 
-Matrix rbp_Iinv(rbp_body *b)
+Matrix
+rbp_Iinv(rbp_body *b)
 {
 	Matrix R = QuaternionToMatrix(b->dir);
 	Matrix m1 = MatrixMultiply(R, b->Ibinv);
 	return MatrixMultiply(m1, MatrixTranspose(R));
 }
 
-Vector3 rbp_w(rbp_body *b)
+Vector3
+rbp_w(rbp_body *b)
 {
 	Vector4 L = (Vector4) {b->L.x, b->L.y, b->L.z, 0.0f};
 	Vector4 r = MatrixVectorMultiply(rbp_Iinv(b), L);
 	return (Vector3) {r.x, r.y, r.z};
 }
 
-Vector3 rbp_displace(rbp_body *b, float dt)
+Vector3
+rbp_displace(rbp_body *b, float dt)
 {
 	return Vector3Add(b->pos, Vector3Scale(rbp_v(b), dt));
 }
 
-Quaternion rbp_rotate(rbp_body *b, float dt)
+Quaternion
+rbp_rotate(rbp_body *b, float dt)
 {
 	Vector3 w3dt = Vector3Scale(rbp_w(b), dt);
 	Quaternion rot = QuaternionFromAxisAngle(w3dt, Vector3Length(w3dt));
 	return QuaternionNormalize(QuaternionMultiply(rot, b->dir));
 }
 
-void rbp_wspace_force(rbp_body *b, Vector3 force, Vector3 pos, float dt)
+void
+rbp_wspace_force(rbp_body *b, Vector3 force, Vector3 pos, float dt)
 {
 	Vector3 dp = Vector3Scale(force, dt);
 	Vector3 r = Vector3Subtract(pos, b->pos);
@@ -104,7 +112,8 @@ void rbp_wspace_force(rbp_body *b, Vector3 force, Vector3 pos, float dt)
 	return;
 }
 
-void rbp_bspace_force(rbp_body *b, Vector3 force, Vector3 pos, float dt)
+void
+rbp_bspace_force(rbp_body *b, Vector3 force, Vector3 pos, float dt)
 {
 	Vector3 wspace_force = Vector3RotateByQuaternion(force, b->dir);
 	Vector3 wspace_pos = rbp_chframe(b, pos);
