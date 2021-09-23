@@ -38,7 +38,7 @@ int main()
 	planet.Minv = 1.0f;
 	planet.Ibinv = MatrixIdentity();
 	planet.pos = (Vector3) {12.0f, 0.0f, 0.0f};
-	planet.p = (Vector3) {0.0f, 2.0f, 13.2f};
+	planet.p = (Vector3) {0.0f, 2.0f, 9.7f};
 	planet.dir = QuaternionIdentity();
 	planet.L = (Vector3) {0.0f, -8.0f, 0.0f};
 	planet.support = &planet_collider;
@@ -82,9 +82,12 @@ int main()
 		time = now;
 
 		while (time_pool >= dt) {
-			if (rbp_gjk(&planet, &sun))
+			/* reset position and velocity if colliding */
+			if (rbp_gjk(&planet, &sun)) {
 				planet.pos = (Vector3) {12.0f, 0.0f, 0.0f};
-
+				planet.p = (Vector3) {0.0f, 2.0f, 9.7f};
+				trj_len = 0;
+			}
 			float r2 = Vector3DotProduct(planet.pos, planet.pos);
 			Vector3 g = Vector3Normalize(planet.pos);
 			Vector3 drag = Vector3Scale(planet.p, -0.01f);
