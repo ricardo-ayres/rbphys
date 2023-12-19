@@ -31,7 +31,6 @@ int main()
 	camera.up = (Vector3) {0.0f, 1.0f, 0.0f};
 	camera.fovy = 45.0f;
 	camera.projection = CAMERA_PERSPECTIVE;
-	SetCameraMode(camera, CAMERA_FREE);
 
 	double now;
 	double time = GetTime();
@@ -52,7 +51,7 @@ int main()
 
 		/* Update model and camera */
 		cube_model.transform = QuaternionToMatrix(cube.dir);
-		UpdateCamera(&camera);
+		UpdateCamera(&camera, CAMERA_FREE);
 
 		/* Render scene */
 		BeginDrawing();

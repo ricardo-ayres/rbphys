@@ -34,7 +34,6 @@ int main()
 	camera.up = (Vector3) {0.0f, 1.0f, 0.0f};
 	camera.fovy = 45.0f;
 	camera.projection = CAMERA_PERSPECTIVE;
-	SetCameraMode(camera, CAMERA_FREE);
 
 	double now;
 	double time = GetTime();
@@ -63,8 +62,7 @@ int main()
 			g = Vector3Scale(g, -1600.0f/r2);
 			rbp_wspace_force(&sphere, g, sphere.pos, dt);
 
-			sphere.pos = rbp_displace(&sphere, dt);
-			sphere.dir = rbp_rotate(&sphere, dt);
+			rbp_update(&sphere, dt);
 			time_pool -= dt;
 		}
 
@@ -75,7 +73,7 @@ int main()
 
 		/* Update model and camera */
 		sphere_model.transform = QuaternionToMatrix(sphere.dir);
-		UpdateCamera(&camera);
+		UpdateCamera(&camera, CAMERA_FREE);
 
 		/* Render scene */
 		BeginDrawing();

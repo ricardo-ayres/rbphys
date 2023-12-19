@@ -28,13 +28,16 @@ rbphys is a header only simple rigid body physics library based on raymath.
 
 #include <raymath.h>
 
+/* Body data type */
 typedef struct rbp_body {
 	/* inverse of mass and inverse of inertia tensor in body space */
 	float Minv;
 	Matrix Ibinv;
 
 	/* state:
+	 * pos = position in world space
 	 * p = linear momentum
+	 * dir = orientation quaternion
 	 * L = angular momentum
 	 */
 
@@ -43,8 +46,28 @@ typedef struct rbp_body {
 	Quaternion dir;
 	Vector3 L;
 
+	/* Function pointer to support-mapping for collision detection */
 	Vector3 (*support)(struct rbp_body *self, Vector3 direction);
+
 } rbp_body;
+
+/* Collision contact data type */
+typedef struct rbp_contact {
+	
+	/* b1 and b2 = bodies involved in the collision
+	 * p1 = contact point for b1 in world space
+	 * p2 = contact point for b2 in world space
+	 * cn = contact normal
+	 * depth = penetration depth
+	 */
+
+	rbp_body *b1;
+	rbp_body *b2;
+	Vector3 p1;
+	Vector3 p2;
+	Vector3 cn;
+	float depth;
+} rbp_contact;
 
 /* Additional math functions */
 Vector4
@@ -59,8 +82,9 @@ MatrixVectorMultiply(Matrix m, Vector4 v)
 	return result;
 }
 
+/* Transform vector v from world space to body space */
 Vector3
-rbp_chframe(rbp_body *b, Vector3 v)
+rbp_wtobspace(rbp_body *b, Vector3 v)
 {
 	return Vector3Add(b->pos, Vector3RotateByQuaternion(v, b->dir));
 }
@@ -88,12 +112,15 @@ rbp_w(rbp_body *b)
 	return (Vector3) {r.x, r.y, r.z};
 }
 
+/* Movement functions */
+/* Returns the new position of body b after integrating by dt */
 Vector3
 rbp_displace(rbp_body *b, float dt)
 {
 	return Vector3Add(b->pos, Vector3Scale(rbp_v(b), dt));
 }
 
+/* Returns the new orientation of body b after integrating by dt */
 Quaternion
 rbp_rotate(rbp_body *b, float dt)
 {
@@ -102,6 +129,14 @@ rbp_rotate(rbp_body *b, float dt)
 	return QuaternionNormalize(QuaternionMultiply(rot, b->dir));
 }
 
+/* Simple shortcut to call both functions above and update the body */
+void rbp_update(rbp_body *b, float dt) {
+	b->pos = rbp_displace(b, dt);
+	b->dir = rbp_rotate(b, dt);
+}
+
+/* Force application functions */
+/* Applies force at world space coordinate pos to body b for duration of dt */
 void
 rbp_wspace_force(rbp_body *b, Vector3 force, Vector3 pos, float dt)
 {
@@ -114,181 +149,13 @@ rbp_wspace_force(rbp_body *b, Vector3 force, Vector3 pos, float dt)
 	return;
 }
 
+/* Applies force at body space coordinate pos to body b for duration of dt */
 void
 rbp_bspace_force(rbp_body *b, Vector3 force, Vector3 pos, float dt)
 {
 	Vector3 wspace_force = Vector3RotateByQuaternion(force, b->dir);
-	Vector3 wspace_pos = rbp_chframe(b, pos);
+	Vector3 wspace_pos = rbp_wtobspace(b, pos);
 	rbp_wspace_force(b, wspace_force, wspace_pos, dt);
 	return;
 }
 
-/* GJK Collision detection */
-typedef struct rbp_simplex {
-	/* simplex dimension */
-	int n;
-
-	/* search direction */
-	Vector3 dir;
-
-	/* simplex vertices */
-	Vector3 A;
-	Vector3 B;
-	Vector3 C;
-	Vector3 D;
-} rbp_simplex;
-
-/* some macros to ease typing */
-#define NEG(d) Vector3Negate(d)
-#define SUB(a, b) Vector3Subtract(a, b);
-#define DOT(a, b) Vector3DotProduct(a, b)
-#define X(a, b) Vector3CrossProduct(a, b)
-#define X3(a, b) Vector3CrossProduct(Vector3CrossProduct(a, b), a)
-
-Vector3
-rbp_support(rbp_body *a, rbp_body *b, Vector3 d)
-{
-	Vector3 sa = a->support(a, d);
-	Vector3 sb = b->support(b, NEG(d));
-	return Vector3Subtract(sa, sb);
-}
-
-int
-rbp_u1simplex(rbp_simplex *s)
-{
-	Vector3 ab = SUB(s->B, s->A);
-	Vector3 ao = NEG(s->A);
-
-	if (DOT(ab, ao) > 0) {
-		/* update direction and save B */
-		s->dir = X3(ab, ao);
-		s->C = s->B;
-	} else {
-		/* update direction and return to 0-simplex */
-		s->dir = ao;
-		s->n = 0;
-	}
-	/* save A */
-	s->B = s->A;
-	return 0;
-}
-
-int
-rbp_u2simplex(rbp_simplex *s)
-{
-	Vector3 ab = SUB(s->B, s->A);
-	Vector3 ac = SUB(s->C, s->A);
-	Vector3 ao = NEG(s->A);
-	Vector3 abc = X(ab, ac);
-
-	Vector3 edgenormal = X(abc, ac);
-	
-	if (DOT(edgenormal, ao) > 0) {
-		if (DOT(ac, ao) > 0) {
-			/* AC is the simplex */
-			s->n = 1;
-			s->dir = X3(ac, ao);
-		} else {
-			/* AB is the simplex, try again */
-			s->n = 1;
-			return rbp_u1simplex(s);
-		}
-	} else {
-		edgenormal = X(abc, ab);
-		if (DOT(edgenormal, ab) > 0) {
-			/* AB is the simplex, try again */
-			s->n = 1;
-			return rbp_u1simplex(s);
-		} else if (DOT(abc, ao) > 0) {
-			/* continue with abc to next dimension */
-			s->D = s->C;
-			s->C = s->B;
-			s->dir = abc;
-		} else {
-			/* continue with acb to next dimension */
-			s->D = s->B;
-			//s->C = s->C; // kinda pointless...
-			s->dir = NEG(abc);
-		}
-	}
-
-	/* save A */
-	s->B = s->A;
-	return 0;
-}
-
-int
-rbp_u3simplex(rbp_simplex *s)
-{
-	Vector3 ab = SUB(s->B, s->A);
-	Vector3 ac = SUB(s->C, s->A);
-	Vector3 ad = SUB(s->D, s->A);
-	Vector3 ao = NEG(s->A);
-
-	Vector3 abc = X(ab, ac);
-	Vector3 acd = X(ac, ad);
-	Vector3 adb = X(ad, ab);
-
-	if (DOT(abc, ao) > 0) {
-		/* origin is above abc face, discard D and try again */
-		s->n = 2;
-		return rbp_u2simplex(s);
-	}
-
-	if (DOT(acd, ao) > 0) {
-		s->B = s->C;
-		s->C = s->D;
-		s->n = 2;
-		return rbp_u2simplex(s);
-	}
-
-	if (DOT(adb, ao) > 0) {
-		s->C = s->B;
-		s->B = s->D;
-		s->n = 2;
-		return rbp_u2simplex(s);
-	}
-
-	/* in case all fails, we know we have the origin inside */
-	return 1;
-}
-
-int
-rbp_update_simplex(rbp_simplex *s)
-{
-	switch(s->n) {
-	case 1: return rbp_u1simplex(s);
-	case 2: return rbp_u2simplex(s);
-	case 3: return rbp_u3simplex(s);
-	default: return 0;
-	}
-}
-
-int
-rbp_gjk(rbp_body *b1, rbp_body *b2)
-{
-	rbp_simplex s;
-
-	/* initial setup */
-	s.dir = (Vector3) {1.0f, 0.0f, 0.0f};
-	s.B = rbp_support(b1, b2, s.dir);
-	s.dir = NEG(s.B);
-	s.n = 0;
-
-	while(1) {
-		s.A = rbp_support(b1, b2, s.dir);
-		s.n++;
-		
-		/* return early if we can't go past the origin */
-		if (DOT(NEG(s.A), s.dir) > 0)
-			return 0;
-
-		if (rbp_update_simplex(&s))
-			return 1;
-	}
-}
-#undef NEG
-#undef SUB
-#undef DOT
-#undef X
-#undef X3

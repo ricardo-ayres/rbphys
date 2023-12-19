@@ -1,6 +1,6 @@
 include config.mk
 
-SRC = const_rotation.c top.c orbit.c collide.c
+SRC = const_rotation.c top.c orbit.c heightmap.c
 OBJ = ${SRC:.c=.o}
 BIN = ${SRC:.c=}
 
