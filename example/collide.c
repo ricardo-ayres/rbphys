@@ -82,7 +82,7 @@ int main()
 
 		while (time_pool >= dt) {
 			/* reset position and velocity if colliding */
-			if (rbp_mpr(&planet, &sun)) {
+			if (rbp_gjk(&planet, &sun)) {
 				planet.pos = (Vector3) {12.0f, 0.0f, 0.0f};
 				planet.p = (Vector3) {0.0f, 2.0f, 9.7f};
 				trj_len = 0;

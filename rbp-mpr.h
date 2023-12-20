@@ -57,7 +57,7 @@ rbp_mpr(rbp_body *b1, rbp_body *b2)
 {
 	rbp_portal p;
 	Vector3 dir;
-	Vector3 X;
+	Vector3 Z;
 
 	/* Phase 1: Portal discovery */
 	/* Define a line from deep within the minkowski difference and get
@@ -73,19 +73,19 @@ rbp_mpr(rbp_body *b1, rbp_body *b2)
 	/* Now VAB defines a triangle, find the normal that points towards the
 	 * origin and get the final support that will define our initial
 	 * portal ABC. */
-	dir = X(SUB(p.A, p.V), SUB(p.B, p.V));
+	dir = NORM(p.A, p.B, p.V);
 	if (DOT(dir, p.Oray) < 0) {
 		/* origin is on the other side, flip. */
 		dir = NEG(dir);
 	}
 	p.C = rbp_support(b1, b2, dir);
-	p.N = NORM(p.A, p.B, p.C);
 	/* Initial portal "ABC" is complete */
 
 	/* Phase 2: Portal refinement */
 	while (1) {
 		/* Check wether the origin is before or beyond the portal. */
-		if (DOT(p.N, p.Oray) < 0) {
+		p.N = NORM(p.A, p.B, p.C);
+		if (DOT(p.N, NEG(p.A)) < 0) {
 			/* origin is behind the portal, return a hit */
 			return 1;
 		}
@@ -93,30 +93,30 @@ rbp_mpr(rbp_body *b1, rbp_body *b2)
 		/* Origin is beyond the portal, get a new support point in the
 		 * direction of the portal normal and see if the origin is beyond
 		 * the plane defined by the new support and the portal normal. */
-		X = rbp_support(b1, b2, p.N);
-		dir = NEG(X); /* ray from X to the origin */
-		if (DOT(p.N, dir) > 0) {
+		Z = rbp_support(b1, b2, p.N);
+		dir = NEG(Z); /* ray from X to the origin */
+		if (DOT(dir, p.N) >= 0) {
 			/* origin is beyond the plane, so outside of the minkowski
 			 * difference. Return a miss */
 			return 0;
 		}
 
-		/* Origin is before X, refine the portal: Use X to form 3 new
+		/* Origin is before Z, refine the portal: Use Z to form 3 new
 		 * candidate portals from the remaining faces of the tetrahedron
-		 * ABCX: ABX, AXC, and BCX */
+		 * ABCZ: ABZ, AZC, and BCZ */
 
-		/* test ABX, AXC and BCX using plucker coordinates */
-		if (rbp_ray_triangle_test(p.A, p.B, X, p.V, p.Oray) > 0) {
-			/* ABX is the new portal, update C and continue */
-			p.C = X;
-		} else if (rbp_ray_triangle_test(p.A, X, p.C, p.V, p.Oray) > 0) {
-			/* AXC is the new portal, update B and continue */
-			p.B = X;
-		} else if (rbp_ray_triangle_test(p.B, p.C, X, p.V, p.Oray) > 0) {
-			/* BCX is the new portal, update ABC and continue */
+		/* test ABZ, AZC and BCZ using plucker coordinates */
+		if (rbp_ray_triangle_test(p.A, p.B, Z, p.V, p.Oray) > 0) {
+			/* ABZ is the new portal, update C and continue */
+			p.C = Z;
+		} else if (rbp_ray_triangle_test(p.A, Z, p.C, p.V, p.Oray) > 0) {
+			/* AZC is the new portal, update B and continue */
+			p.B = Z;
+		} else if (rbp_ray_triangle_test(p.B, p.C, Z, p.V, p.Oray) > 0) {
+			/* BCZ is the new portal, update ABC and continue */
 			p.A = p.B;
 			p.B = p.C;
-			p.C = X;
+			p.C = Z;
 		}
 	}	
 }

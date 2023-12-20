@@ -51,7 +51,7 @@ typedef struct rbp_body {
 
 } rbp_body;
 
-#include "rbp-mpr.h"
+#include "rbp-gjk.h"
 
 /* Collision contact data type */
 typedef struct rbp_contact {
