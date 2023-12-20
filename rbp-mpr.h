@@ -10,7 +10,7 @@ typedef struct rbp_portal {
 
 /* Defining some macros to ease typing */
 #define NEG(d) Vector3Negate(d)
-#define SUB(a, b) Vector3Subtract(a, b);
+#define SUB(a, b) Vector3Subtract(a, b)
 #define DOT(a, b) Vector3DotProduct(a, b)
 #define X(a, b) Vector3CrossProduct(a, b)
 #define X3(a, b) Vector3CrossProduct(Vector3CrossProduct(a, b), a)
@@ -94,7 +94,7 @@ rbp_mpr(rbp_body *b1, rbp_body *b2)
 		 * direction of the portal normal and see if the origin is beyond
 		 * the plane defined by the new support and the portal normal. */
 		X = rbp_support(b1, b2, p.N);
-		dir = NEG(X) /* ray from X to the origin */
+		dir = NEG(X); /* ray from X to the origin */
 		if (DOT(p.N, dir) > 0) {
 			/* origin is beyond the plane, so outside of the minkowski
 			 * difference. Return a miss */
