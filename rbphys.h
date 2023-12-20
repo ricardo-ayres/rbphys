@@ -46,7 +46,8 @@ typedef struct rbp_body {
 	Quaternion dir;
 	Vector3 L;
 
-	/* Function pointer to support-mapping for collision detection */
+	/* Function pointer to support-mapping for collision detection
+	 * Attention: must return support points in world space! */
 	Vector3 (*support)(struct rbp_body *self, Vector3 direction);
 
 } rbp_body;

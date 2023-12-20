@@ -14,8 +14,26 @@ planet_collider(rbp_body *self, Vector3 d)
 Vector3
 sun_collider(rbp_body *self, Vector3 d)
 {
-	Vector3 r = Vector3Scale(Vector3Normalize(d), 5.0f);
-	return Vector3Add(self->pos, r);
+	Vector3 support;
+	if (d.x > 0) {
+		support.x = 5.0f;
+	} else {
+		support.x = -5.0f;
+	}
+
+	if (d.y > 0) {
+		support.y = 5.0f;
+	} else {
+		support.y = -5.0f;
+	}
+
+	if (d.z > 0) {
+		support.z = 5.0f;
+	} else {
+		support.z = -5.0f;
+	}
+
+	return support;
 }
 
 int main()
@@ -30,7 +48,7 @@ int main()
 	UnloadImage(checked);
 
 	Model planet_model = LoadModelFromMesh(GenMeshSphere(1.0f, 16, 16));
-	Model sun_model = LoadModelFromMesh(GenMeshSphere(5.0f, 16, 16));
+	Model sun_model = LoadModelFromMesh(GenMeshCube(10.0f, 10.0f, 10.0f));
 	planet_model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
 	sun_model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
 

@@ -170,7 +170,7 @@ rbp_update_simplex(rbp_simplex *s)
 }
 
 int
-rbp_gjk(rbp_body *b1, rbp_body *b2)
+rbp_gjk(rbp_body *b1, rbp_body *b2, Vector3 *sepnorm)
 {
 	rbp_simplex s;
 
@@ -190,9 +190,11 @@ rbp_gjk(rbp_body *b1, rbp_body *b2)
 
 		/* If the search above returns a minkowski difference point that is
 		 * not past the origin, we know we can't expand further. The shapes
-		 * are disjoint and we don't have a collision.
+		 * are disjoint and we don't have a collision. Set the last search
+		 * direction as the separation normal and return a miss.
 		 */
 		if (DOT(NEG(s.A), s.dir) > 0) {
+			*sepnorm = s.dir;
 			return 0;
 		}
 
