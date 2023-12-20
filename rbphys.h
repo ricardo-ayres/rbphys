@@ -23,7 +23,7 @@ DEALINGS IN THE SOFTWARE.
 */
 
 /*
-rbphys is a header only simple rigid body physics library based on raymath.
+rbphys is a simple rigid body physics library based on raymath.
 */
 
 #include <raymath.h>
@@ -50,6 +50,8 @@ typedef struct rbp_body {
 	Vector3 (*support)(struct rbp_body *self, Vector3 direction);
 
 } rbp_body;
+
+#include "rbp-mpr.h"
 
 /* Collision contact data type */
 typedef struct rbp_contact {
