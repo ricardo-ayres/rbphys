@@ -42,7 +42,7 @@ int main()
 	planet.dir = QuaternionIdentity();
 	planet.L = (Vector3) {0.0f, -8.0f, 0.0f};
 	planet.collider_type = SPHERE;
-	rbp_sphere_collider planet_collider = {1.0f};
+	rbp_sphere_collider planet_collider = {{0.0f, 0.0f, 0.0f}, 1.0f};
 	planet.collider = &planet_collider;
 
 	rbp_body sun;
@@ -53,7 +53,7 @@ int main()
 	sun.dir = QuaternionIdentity();
 	sun.L = Vector3Zero();
 	sun.collider_type = SPHERE;
-	rbp_sphere_collider sun_collider = {5.0f};
+	rbp_sphere_collider sun_collider = {{0.0f, 0.0f, 0.0f}, 5.0f};
 	sun.collider = &sun_collider;
 
 	Camera3D camera = { 0 };

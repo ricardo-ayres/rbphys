@@ -8,7 +8,7 @@ int main()
 {
 	InitWindow(640, 480, "rbphys");
 
-	SetTargetFPS(60.0);
+	SetTargetFPS(120.0);
 	float dt = 1.0 / 60.0;
 
 	Image checked = GenImageChecked(2, 2, 1, 1, RED, GREEN);
@@ -27,6 +27,9 @@ int main()
 	planet.p = (Vector3) {0.0f, 2.0f, 9.7f};
 	planet.dir = QuaternionIdentity();
 	planet.L = (Vector3) {0.0f, -8.0f, 0.0f};
+	planet.collider_type = SPHERE;
+	rbp_sphere_collider planet_collider = {{0.0f, 0.0f, 0.0f}, 1.0f};
+	planet.collider = &planet_collider;
 
 	rbp_body sun;
 	sun.Minv = 0.1f;
@@ -34,7 +37,15 @@ int main()
 	sun.pos = Vector3Zero();
 	sun.p = Vector3Zero();
 	sun.dir = QuaternionIdentity();
-	sun.L = Vector3Zero();
+	sun.L = (Vector3){0.5f, 0.0f, 0.0f};
+	sun.collider_type = CUBOID;
+	rbp_cuboid_collider sun_collider = {
+		{0.0f,0.0f,0.0f},
+		QuaternionIdentity(),
+		10.0f,
+		10.0f,
+		10.0f};
+	sun.collider = &sun_collider;
 
 	Camera3D camera = { 0 };
 	camera.position = (Vector3) {-35.0f, 20.0f, -35.0f};
@@ -58,6 +69,7 @@ int main()
 	Vector3 trj[trj_max];
 	trj[0] = planet.pos;
 
+	rbp_contact contact;
 	while(!WindowShouldClose()) {
 		/* Update physics */
 		now = GetTime();
@@ -65,13 +77,6 @@ int main()
 		time = now;
 
 		while (time_pool >= dt) {
-			/* reset position and velocity if colliding */
-			/*if (rbp_gjk(&planet, &sun, &dist)) {
-				planet.pos = (Vector3) {12.0f, 0.0f, 0.0f};
-				planet.p = (Vector3) {0.0f, 2.0f, 9.7f};
-				trj_len = 0;
-			} */
-
 			float r2 = Vector3DotProduct(planet.pos, planet.pos);
 			Vector3 g = Vector3Normalize(planet.pos);
 			Vector3 drag = Vector3Scale(planet.p, -0.01f);
@@ -79,9 +84,17 @@ int main()
 			rbp_wspace_force(&planet, g, planet.pos, dt);
 			rbp_wspace_force(&planet, drag, planet.pos, dt);
 
-			planet.pos = rbp_displace(&planet, dt);
-			planet.dir = rbp_rotate(&planet, dt);
+			rbp_update(&planet, dt);
+			rbp_update(&sun, dt);
 			time_pool -= dt;
+
+			/* Check collisions, reset planet if hit */
+			if (rbp_collide(&planet, &sun, &contact)) {
+				planet.pos = (Vector3) {12.0f, 0.0f, 0.0f};
+				planet.p = (Vector3) {0.0f, 2.0f, 9.7f};
+				trj_len = 0;
+				printf("Contact!\n");
+			}
 		}
 
 		/* Update trajectory trace */
@@ -91,6 +104,7 @@ int main()
 
 		/* Update model and camera */
 		planet_model.transform = QuaternionToMatrix(planet.dir);
+		sun_model.transform = QuaternionToMatrix(sun.dir);
 		UpdateCamera(&camera, CAMERA_FREE);
 
 		/* Render scene */

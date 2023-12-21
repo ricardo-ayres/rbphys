@@ -35,13 +35,16 @@ typedef enum {
 } rbp_collider_type;
 
 typedef struct rbp_sphere_collider {
+	Vector3 offset; /* position relative to rbp_body->pos */
 	float radius;
 } rbp_sphere_collider;
 
 typedef struct rbp_cuboid_collider {
-	float size_x;
-	float size_y;
-	float size_z;
+	Vector3 offset; /* position relative to rbp_body->pos */
+	Quaternion dir; /* orientation relative to rbp_body->dir */
+	float xsize;
+	float ysize;
+	float zsize;
 } rbp_cuboid_collider;
 
 /* Body data type */
@@ -184,10 +187,14 @@ rbp_bspace_force(rbp_body *b, Vector3 force, Vector3 pos, float dt)
 /* Collision functions */
 int rbp_collide_sphere_sphere(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 {
-	float r1 = ((rbp_sphere_collider *) b1->collider)->radius;
-	float r2 = ((rbp_sphere_collider *) b2->collider)->radius;
+	rbp_sphere_collider *c1 = b1->collider;
+	rbp_sphere_collider *c2 = b2->collider;
+	float r1 = c1->radius;
+	float r2 = c2->radius;
+	Vector3 pos1 = Vector3Add(b1->pos, c1->offset);
+	Vector3 pos2 = Vector3Add(b2->pos, c2->offset);
 
-	Vector3 cn = Vector3Subtract(b1->pos, b2->pos); /* vector from center to center */
+	Vector3 cn = Vector3Subtract(pos1, pos2); /* vector from center to center */
 	float center_distance = Vector3Length(cn);
 	float total_radius = r1 + r2;
 	float separation = center_distance - total_radius;
@@ -199,7 +206,7 @@ int rbp_collide_sphere_sphere(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 		c->cn = Vector3Scale(cn, separation/center_distance);
 
 		c->p1 = Vector3Add(
-			b1->pos,
+			pos1,
 			Vector3Scale(cn, r1/center_distance));
 		c->p2 = Vector3Add(c->p1, c->cn);
 		return 1;
@@ -210,7 +217,36 @@ int rbp_collide_sphere_sphere(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 
 int rbp_collide_sphere_cuboid(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 {
-	/* IMPLEMENT */
+	rbp_sphere_collider *c1 = b1->collider;
+	rbp_cuboid_collider *c2 = b2->collider;
+
+	Vector3 pos1 = Vector3Add(b1->pos, c1->offset);
+	float r1 = c1->radius;
+
+	Vector3 pos2 = Vector3Add(b2->pos, c2->offset);
+	Quaternion dir2 = QuaternionMultiply(c2->dir, b2->dir);
+	dir2 = QuaternionNormalize(dir2);
+	float xsize = c2->xsize * 0.5;
+	float ysize = c2->ysize * 0.5;
+	float zsize = c2->zsize * 0.5;
+
+	/* Calculate relative position */
+	Vector3 relpos1 = Vector3Subtract(pos1, pos2);
+	relpos1 = Vector3RotateByQuaternion(relpos1, dir2);
+
+	float dx = fabsf(relpos1.x) - r1 - xsize;
+	float dy = fabsf(relpos1.y) - r1 - ysize;
+	float dz = fabsf(relpos1.z) - r1 - zsize;
+
+	if (dx < 0 && dy < 0 && dz < 0) {
+		/* Hit! Construct c and return 1 */
+		/* Invert bodies as dx, dy and dz are from cuboid to sphere */
+		c->b2 = b1;
+		c->b1 = b2;
+
+		return 1;
+	}
+
 	return 0;
 }
 
