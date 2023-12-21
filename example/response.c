@@ -8,7 +8,7 @@ int main()
 {
 	InitWindow(640, 480, "rbphys");
 
-	SetTargetFPS(120.0);
+	SetTargetFPS(60.0);
 	float dt = 1.0 / 60.0;
 
 	Image checked = GenImageChecked(2, 2, 1, 1, RED, GREEN);
@@ -16,7 +16,7 @@ int main()
 	UnloadImage(checked);
 
 	Model planet_model = LoadModelFromMesh(GenMeshSphere(1.0f, 16, 16));
-	Model sun_model = LoadModelFromMesh(GenMeshCube(10.0f, 10.0f, 10.0f));
+	Model sun_model = LoadModelFromMesh(GenMeshSphere(5.0f, 16, 16));
 	planet_model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
 	sun_model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
 
@@ -37,15 +37,9 @@ int main()
 	sun.pos = Vector3Zero();
 	sun.p = Vector3Zero();
 	sun.dir = QuaternionIdentity();
-	sun.L = (Vector3){0.5f, 0.0f, 0.0f};
-	sun.collider_type = CUBOID;
-	rbp_cuboid_collider sun_collider = {
-		{0.0f,0.0f,0.0f},
-		QuaternionIdentity(),
-		0.8f,
-		10.0f,
-		10.0f,
-		10.0f};
+	sun.L = Vector3Zero();
+	sun.collider_type = SPHERE;
+	rbp_sphere_collider sun_collider = {{0.0f, 0.0f, 0.0f}, 0.8f, 5.0f};
 	sun.collider = &sun_collider;
 
 	Camera3D camera = { 0 };
@@ -89,12 +83,9 @@ int main()
 			rbp_update(&sun, dt);
 			time_pool -= dt;
 
-			/* Check collisions, reset planet if hit */
 			if (rbp_collide(&planet, &sun, &contact)) {
-				planet.pos = (Vector3) {12.0f, 0.0f, 0.0f};
-				planet.p = (Vector3) {0.0f, 2.0f, 9.7f};
-				trj_len = 0;
-				printf("Contact!\n");
+				printf("collision\n");
+				rbp_resolve_collision(&contact, dt);
 			}
 		}
 
@@ -105,7 +96,6 @@ int main()
 
 		/* Update model and camera */
 		planet_model.transform = QuaternionToMatrix(planet.dir);
-		sun_model.transform = QuaternionToMatrix(sun.dir);
 		UpdateCamera(&camera, CAMERA_FREE);
 
 		/* Render scene */

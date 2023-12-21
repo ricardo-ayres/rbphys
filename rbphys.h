@@ -36,12 +36,14 @@ typedef enum {
 
 typedef struct rbp_sphere_collider {
 	Vector3 offset; /* position relative to rbp_body->pos */
+	float restitution;
 	float radius;
 } rbp_sphere_collider;
 
 typedef struct rbp_cuboid_collider {
 	Vector3 offset; /* position relative to rbp_body->pos */
 	Quaternion dir; /* orientation relative to rbp_body->dir */
+	float restitution;
 	float xsize;
 	float ysize;
 	float zsize;
@@ -92,6 +94,7 @@ typedef struct rbp_contact {
 	Vector3 p1;
 	Vector3 p2;
 	Vector3 cn;
+	float restitution;
 } rbp_contact;
 
 /* Additional math functions */
@@ -209,6 +212,7 @@ int rbp_collide_sphere_sphere(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 			pos1,
 			Vector3Scale(cn, r1/center_distance));
 		c->p2 = Vector3Add(c->p1, c->cn);
+		c->restitution = c1->restitution * c2->restitution;
 		return 1;
 	}
 	/* Miss, return 0, don't touch c. */
@@ -240,10 +244,7 @@ int rbp_collide_sphere_cuboid(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 
 	if (dx < 0 && dy < 0 && dz < 0) {
 		/* Hit! Construct c and return 1 */
-		/* Invert bodies as dx, dy and dz are from cuboid to sphere */
-		c->b2 = b1;
-		c->b1 = b2;
-
+		c->restitution = c1->restitution * c2->restitution;
 		return 1;
 	}
 
@@ -296,4 +297,11 @@ int rbp_collide(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 	}
 
 	return collide(a, b, c);
+}
+
+/* Collision resolution */
+void
+rbp_resolve_collision(rbp_contact *c, float dt)
+{
+	/* Implement */
 }

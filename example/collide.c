@@ -4,20 +4,6 @@
 
 #include <rbphys.h>
 
-Vector3
-planet_collider(rbp_body *self, Vector3 d)
-{
-	Vector3 r = Vector3Scale(Vector3Normalize(d), 1.0f);
-	return Vector3Add(self->pos, r);
-}
-
-Vector3
-sun_collider(rbp_body *self, Vector3 d)
-{
-	Vector3 r = Vector3Scale(Vector3Normalize(d), 5.0f);
-	return Vector3Add(self->pos, r);
-}
-
 int main()
 {
 	InitWindow(640, 480, "rbphys");
