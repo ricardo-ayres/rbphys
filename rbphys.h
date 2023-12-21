@@ -28,6 +28,22 @@ rbphys is a simple rigid body physics library based on raymath.
 
 #include <raymath.h>
 
+/* Collider data types */
+typedef enum {
+	SPHERE,
+	CUBOID,
+} rbp_collider_type;
+
+typedef struct rbp_sphere_collider {
+	float radius;
+} rbp_sphere_collider;
+
+typedef struct rbp_cuboid_collider {
+	float size_x;
+	float size_y;
+	float size_z;
+} rbp_cuboid_collider;
+
 /* Body data type */
 typedef struct rbp_body {
 	/* inverse of mass and inverse of inertia tensor in body space */
@@ -48,11 +64,16 @@ typedef struct rbp_body {
 
 	/* Function pointer to support-mapping for collision detection
 	 * Attention: must return support points in world space! */
-	Vector3 (*support)(struct rbp_body *self, Vector3 direction);
+	/* Vector3 (*support)(struct rbp_body *self, Vector3 direction); */
 
+	/* Collider type and a pointer to the collider */
+	rbp_collider_type collider_type;
+	void *collider;
 } rbp_body;
 
-#include "rbp-gjk.h"
+/* Ditching gjk and mpr in favor of a simple analytical collision system */
+/* #include "rbp-gjk.h" */
+/* #include "rbp-mpr.h" */
 
 /* Collision contact data type */
 typedef struct rbp_contact {
@@ -60,8 +81,7 @@ typedef struct rbp_contact {
 	/* b1 and b2 = bodies involved in the collision
 	 * p1 = contact point for b1 in world space
 	 * p2 = contact point for b2 in world space
-	 * cn = contact normal
-	 * depth = penetration depth
+	 * cn = collision normal (b1->b2, not normalized, includes distance info)
 	 */
 
 	rbp_body *b1;
@@ -69,7 +89,6 @@ typedef struct rbp_contact {
 	Vector3 p1;
 	Vector3 p2;
 	Vector3 cn;
-	float depth;
 } rbp_contact;
 
 /* Additional math functions */
@@ -139,7 +158,8 @@ void rbp_update(rbp_body *b, float dt) {
 }
 
 /* Force application functions */
-/* Applies force at world space coordinate pos to body b for duration of dt */
+/* Applies an impulse equivalent to the desired force at world space
+ * coordinate pos to body b for duration of dt */
 void
 rbp_wspace_force(rbp_body *b, Vector3 force, Vector3 pos, float dt)
 {
@@ -149,16 +169,95 @@ rbp_wspace_force(rbp_body *b, Vector3 force, Vector3 pos, float dt)
 
 	b->p = Vector3Add(b->p, dp);
 	b->L = Vector3Add(b->L, dL);
-	return;
 }
 
-/* Applies force at body space coordinate pos to body b for duration of dt */
+/* Applies an impulse equivalent to the desired force at body space
+ * coordinate pos to body b for duration of dt */
 void
 rbp_bspace_force(rbp_body *b, Vector3 force, Vector3 pos, float dt)
 {
 	Vector3 wspace_force = Vector3RotateByQuaternion(force, b->dir);
 	Vector3 wspace_pos = rbp_wtobspace(b, pos);
 	rbp_wspace_force(b, wspace_force, wspace_pos, dt);
-	return;
 }
 
+/* Collision functions */
+int rbp_collide_sphere_sphere(rbp_body *b1, rbp_body *b2, rbp_contact *c)
+{
+	float r1 = ((rbp_sphere_collider *) b1->collider)->radius;
+	float r2 = ((rbp_sphere_collider *) b2->collider)->radius;
+
+	Vector3 cn = Vector3Subtract(b1->pos, b2->pos); /* vector from center to center */
+	float center_distance = Vector3Length(cn);
+	float total_radius = r1 + r2;
+	float separation = center_distance - total_radius;
+
+	if (separation < 0) {
+		/* Hit! Calculate contact, update c and return 1 */
+		c->b1 = b1;
+		c->b2 = b2;
+		c->cn = Vector3Scale(cn, separation/center_distance);
+
+		c->p1 = Vector3Add(
+			b1->pos,
+			Vector3Scale(cn, r1/center_distance));
+		c->p2 = Vector3Add(c->p1, c->cn);
+		return 1;
+	}
+	/* Miss, return 0, don't touch c. */
+	return 0;
+}
+
+int rbp_collide_sphere_cuboid(rbp_body *b1, rbp_body *b2, rbp_contact *c)
+{
+	/* IMPLEMENT */
+	return 0;
+}
+
+int rbp_collide_cuboid_cuboid(rbp_body *b1, rbp_body *b2, rbp_contact *c)
+{
+	/* IMPLEMENT */
+	return 0;
+}
+
+int rbp_collide(rbp_body *b1, rbp_body *b2, rbp_contact *c)
+{
+	rbp_body *a;
+	rbp_body *b;
+	int (*collide)(rbp_body*, rbp_body*, rbp_contact*);
+
+	/* Ensure smallest collider_type goes as b1 */
+	if (b1->collider_type < b2->collider_type) {
+		a = b1;
+		b = b2;
+	} else {
+		a = b2;
+		b = b1;
+	}
+	switch (a->collider_type) {
+	case SPHERE:
+		switch (b->collider_type) {
+		case SPHERE: /* sphere vs sphere */
+			collide = rbp_collide_sphere_sphere;
+			break;
+		case CUBOID: /* sphere vs cuboid */
+			collide = rbp_collide_sphere_cuboid;
+			break;
+		default: return 0;
+		}
+		break;
+
+	case CUBOID:
+		switch (b->collider_type) {
+		case CUBOID: /* cuboid vs cuboid */
+			collide = rbp_collide_cuboid_cuboid;
+			break;
+		default: return 0;
+		}
+		break;
+
+	default: return 0;
+	}
+
+	return collide(a, b, c);
+}

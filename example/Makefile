@@ -16,7 +16,7 @@ options:
 	@echo CC $<
 	@${CC} -c ${CFLAGS} $<
 
-${OBJ}: config.mk ../rbphys.h ../rbp-mpr.h
+${OBJ}: config.mk ../rbphys.h
 
 ${BIN}: ${OBJ}
 	@echo ${CC} -o $@

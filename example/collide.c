@@ -41,7 +41,9 @@ int main()
 	planet.p = (Vector3) {0.0f, 2.0f, 9.7f};
 	planet.dir = QuaternionIdentity();
 	planet.L = (Vector3) {0.0f, -8.0f, 0.0f};
-	planet.support = &planet_collider;
+	planet.collider_type = SPHERE;
+	rbp_sphere_collider planet_collider = {1.0f};
+	planet.collider = &planet_collider;
 
 	rbp_body sun;
 	sun.Minv = 0.1f;
@@ -50,7 +52,9 @@ int main()
 	sun.p = Vector3Zero();
 	sun.dir = QuaternionIdentity();
 	sun.L = Vector3Zero();
-	sun.support = &sun_collider;
+	sun.collider_type = SPHERE;
+	rbp_sphere_collider sun_collider = {5.0f};
+	sun.collider = &sun_collider;
 
 	Camera3D camera = { 0 };
 	camera.position = (Vector3) {-35.0f, 20.0f, -35.0f};
@@ -74,9 +78,7 @@ int main()
 	Vector3 trj[trj_max];
 	trj[0] = planet.pos;
 
-	Vector3 dist;
-	float length;
-
+	rbp_contact contact;
 	while(!WindowShouldClose()) {
 		/* Update physics */
 		now = GetTime();
@@ -85,13 +87,13 @@ int main()
 
 		while (time_pool >= dt) {
 			/* reset position and velocity if colliding */
-			if (rbp_gjk(&planet, &sun, &dist)) {
+			if (rbp_collide(&planet, &sun, &contact)) {
 				planet.pos = (Vector3) {12.0f, 0.0f, 0.0f};
 				planet.p = (Vector3) {0.0f, 2.0f, 9.7f};
 				trj_len = 0;
+				printf("Contact! Penetration: %.3f\n",
+					Vector3Length(contact.cn));
 			}
-			length = Vector3Length(dist);
-			printf("Distance: %.4f\n", length);
 
 			float r2 = Vector3DotProduct(planet.pos, planet.pos);
 			Vector3 g = Vector3Normalize(planet.pos);
@@ -125,7 +127,6 @@ int main()
 				}
 				DrawModel(sun_model, sun.pos, 1.0f, RED);
 				DrawModel(planet_model, planet.pos, 1.0f, WHITE);
-				DrawLine3D(planet.pos, dist, PURPLE);
 			EndMode3D();
 			DrawFPS(1,1);
 		EndDrawing();
