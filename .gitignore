@@ -2,6 +2,7 @@
 const_rotation
 top
 orbit
+heightmap
 collide
 collide_cube
 response

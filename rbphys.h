@@ -303,5 +303,29 @@ int rbp_collide(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 void
 rbp_resolve_collision(rbp_contact *c, float dt)
 {
-	/* Implement */
+	/* unpack c to make it easier */
+	rbp_body *b1 = c->b1;
+	rbp_body *b2 = c->b2;
+	Vector3 pos1 = c->p1;
+	Vector3 pos2 = c->p2;
+	Vector3 cn = c->cn;
+	float e = c->restitution;
+
+	float minv = b1->Minv + b2->Minv;
+
+	/* adjust positions to eliminate penetration */
+	Vector3 ds1 = Vector3Scale(cn, b1->Minv / minv);
+	Vector3 ds2 = Vector3Scale(cn, b2->Minv / minv);
+	b1->pos = Vector3Subtract(b1->pos, ds1);
+	b2->pos = Vector3Add(b2->pos, ds2);
+
+	/* Calculate impulse magnitude */
+	cn = Vector3Normalize(cn);
+	Vector3 relp = Vector3Subtract(b1->p, b2->p);
+	float j = Vector3DotProduct(relp, cn);
+	Vector3 dp = Vector3Scale(cn, j*e);
+
+	/* Update bodies */
+	b1->p = Vector3Subtract(b1->p, dp);
+	b2->p = Vector3Add(b2->p, dp);
 }
