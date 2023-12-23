@@ -238,13 +238,37 @@ int rbp_collide_sphere_cuboid(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 	Vector3 relpos1 = Vector3Subtract(pos1, pos2);
 	relpos1 = Vector3RotateByQuaternion(relpos1, dir2);
 
-	float dx = fabsf(relpos1.x) - r1 - xsize;
-	float dy = fabsf(relpos1.y) - r1 - ysize;
-	float dz = fabsf(relpos1.z) - r1 - zsize;
+	float dx = fabsf(relpos1.x) - xsize;
+	float dy = fabsf(relpos1.y) - ysize;
+	float dz = fabsf(relpos1.z) - zsize;
 
-	if (dx < 0 && dy < 0 && dz < 0) {
+	if (dx < r1 && dy < r1 && dz < r1) {
 		/* Hit! Construct c and return 1 */
+		/* Pass the bodies swapped because our normal points from the
+		 * cuboid (b2) to the sphere (b1) */
+		c->b1 = b2;
+		c->b2 = b1;
 		c->restitution = c1->restitution * c2->restitution;
+
+		/* Build the contact normal and points in local space */
+		c->cn.x = dx > 0 ? relpos1.x : 0.0f;
+		c->cn.y = dy > 0 ? relpos1.y : 0.0f;
+		c->cn.z = dz > 0 ? relpos1.z : 0.0f;
+		Quaternion unrot = QuaternionInvert(dir2);
+
+		c->p2 = Vector3Scale(Vector3Normalize(c->cn), r1);
+		c->p2 = Vector3Subtract(relpos1, c->p2);
+		c->p1 = c->p2;
+		c->p1 = Vector3Add(c->p1, c->cn);
+
+	
+		/* Send the contact normal and points to world space */
+		c->cn = Vector3RotateByQuaternion(c->cn, unrot);
+		c->p1 = Vector3RotateByQuaternion(c->p1, unrot);
+		c->p2 = Vector3RotateByQuaternion(c->p2, unrot);
+		c->p1 = Vector3Add(c->b1->pos, c->p1);
+		c->p2 = Vector3Add(c->b2->pos, c->p2);
+	
 		return 1;
 	}
 
@@ -322,10 +346,20 @@ rbp_resolve_collision(rbp_contact *c, float dt)
 	/* Calculate impulse magnitude */
 	cn = Vector3Normalize(cn);
 	Vector3 relp = Vector3Subtract(b1->p, b2->p);
-	float j = Vector3DotProduct(relp, cn);
-	Vector3 dp = Vector3Scale(cn, j*e);
+	float j = e*Vector3DotProduct(relp, cn);
+	Vector3 dp = Vector3Scale(cn, j);
+
+	/* Calculate moments */
+	Vector3 r1 = Vector3Subtract(pos1, b1->pos);
+	Vector3 r2 = Vector3Subtract(pos2, b2->pos);
+	Vector3 dL1 = Vector3CrossProduct(r1, cn);
+	Vector3 dL2 = Vector3CrossProduct(r2, cn);
+	dL1 = Vector3Scale(dL1, j);
+	dL2 = Vector3Scale(dL2, j);
 
 	/* Update bodies */
 	b1->p = Vector3Subtract(b1->p, dp);
+	b1->L = Vector3Subtract(b1->L, dL1);
 	b2->p = Vector3Add(b2->p, dp);
+	b2->L = Vector3Add(b2->L, dL2);
 }

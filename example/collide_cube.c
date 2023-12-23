@@ -21,35 +21,35 @@ int main()
 	sun_model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
 
 	rbp_body planet;
-	planet.Minv = 1.0f;
+	planet.Minv = 10.0f;
 	planet.Ibinv = MatrixIdentity();
 	planet.pos = (Vector3) {12.0f, 0.0f, 0.0f};
-	planet.p = (Vector3) {0.0f, 2.0f, 9.7f};
+	planet.p = (Vector3) {0.0f, 0.0f, 0.2f};
 	planet.dir = QuaternionIdentity();
 	planet.L = (Vector3) {0.0f, -8.0f, 0.0f};
 	planet.collider_type = SPHERE;
-	rbp_sphere_collider planet_collider = {{0.0f, 0.0f, 0.0f}, 0.8f, 1.0f};
+	rbp_sphere_collider planet_collider = {{0.0f, 0.0f, 0.0f}, 0.99f, 1.0f};
 	planet.collider = &planet_collider;
 
 	rbp_body sun;
-	sun.Minv = 0.1f;
-	sun.Ibinv = MatrixIdentity();
+	sun.Minv = 0.01f;
+	sun.Ibinv = MatrixScale(0.1f, 0.1f, 0.1f);
 	sun.pos = Vector3Zero();
 	sun.p = Vector3Zero();
 	sun.dir = QuaternionIdentity();
-	sun.L = (Vector3){0.5f, 0.0f, 0.0f};
+	sun.L = Vector3Zero();
 	sun.collider_type = CUBOID;
 	rbp_cuboid_collider sun_collider = {
 		{0.0f,0.0f,0.0f},
 		QuaternionIdentity(),
-		0.8f,
+		0.99f,
 		10.0f,
 		10.0f,
 		10.0f};
 	sun.collider = &sun_collider;
 
 	Camera3D camera = { 0 };
-	camera.position = (Vector3) {-35.0f, 20.0f, -35.0f};
+	camera.position = (Vector3) {50.0f, 40.0f, 0.0f};
 	camera.target = Vector3Zero();
 	camera.up = (Vector3) {0.0f, 1.0f, 0.0f};
 	camera.fovy = 45.0f;
@@ -81,9 +81,9 @@ int main()
 			float r2 = Vector3DotProduct(planet.pos, planet.pos);
 			Vector3 g = Vector3Normalize(planet.pos);
 			Vector3 drag = Vector3Scale(planet.p, -0.01f);
-			g = Vector3Scale(g, -1600.0f/r2);
+			g = Vector3Scale(g, -16.0f/r2);
 			rbp_wspace_force(&planet, g, planet.pos, dt);
-			rbp_wspace_force(&planet, drag, planet.pos, dt);
+			rbp_wspace_force(&sun, Vector3Scale(g, -1.0f), sun.pos, dt);
 
 			rbp_update(&planet, dt);
 			rbp_update(&sun, dt);
@@ -91,10 +91,7 @@ int main()
 
 			/* Check collisions, reset planet if hit */
 			if (rbp_collide(&planet, &sun, &contact)) {
-				planet.pos = (Vector3) {12.0f, 0.0f, 0.0f};
-				planet.p = (Vector3) {0.0f, 2.0f, 9.7f};
-				trj_len = 0;
-				printf("Contact!\n");
+				rbp_resolve_collision(&contact, dt);
 			}
 		}
 
