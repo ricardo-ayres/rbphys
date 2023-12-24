@@ -236,7 +236,8 @@ int rbp_collide_sphere_cuboid(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 
 	/* Calculate relative position */
 	Vector3 relpos1 = Vector3Subtract(pos1, pos2);
-	relpos1 = Vector3RotateByQuaternion(relpos1, dir2);
+	Quaternion unrot = QuaternionInvert(dir2);
+	relpos1 = Vector3RotateByQuaternion(relpos1, unrot);
 
 	float dx = fabsf(relpos1.x) - xsize;
 	float dy = fabsf(relpos1.y) - ysize;
@@ -251,21 +252,19 @@ int rbp_collide_sphere_cuboid(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 		c->restitution = c1->restitution * c2->restitution;
 
 		/* Build the contact normal and points in local space */
-		c->cn.x = dx > 0 ? relpos1.x : 0.0f;
-		c->cn.y = dy > 0 ? relpos1.y : 0.0f;
-		c->cn.z = dz > 0 ? relpos1.z : 0.0f;
-		Quaternion unrot = QuaternionInvert(dir2);
+		c->p1.x = dx > 0 ? xsize * relpos1.x / fabsf(relpos1.x) : relpos1.x;
+		c->p1.y = dy > 0 ? ysize * relpos1.y / fabsf(relpos1.y) : relpos1.y;
+		c->p1.z = dz > 0 ? zsize * relpos1.z / fabsf(relpos1.z) : relpos1.z;
 
-		c->p2 = Vector3Scale(Vector3Normalize(c->cn), r1);
-		c->p2 = Vector3Subtract(relpos1, c->p2);
-		c->p1 = c->p2;
-		c->p1 = Vector3Add(c->p1, c->cn);
-
+		c->cn = Vector3Subtract(relpos1, c->p1);
+		float depth = r1 - Vector3Length(c->cn);
+		c->cn = Vector3Scale(Vector3Normalize(c->cn), depth);
+		c->p2 = Vector3Add(c->p1, c->p2);
 	
 		/* Send the contact normal and points to world space */
-		c->cn = Vector3RotateByQuaternion(c->cn, unrot);
-		c->p1 = Vector3RotateByQuaternion(c->p1, unrot);
-		c->p2 = Vector3RotateByQuaternion(c->p2, unrot);
+		c->cn = Vector3RotateByQuaternion(c->cn, dir2);
+		c->p1 = Vector3RotateByQuaternion(c->p1, dir2);
+		c->p2 = Vector3RotateByQuaternion(c->p2, dir2);
 		c->p1 = Vector3Add(c->b1->pos, c->p1);
 		c->p2 = Vector3Add(c->b2->pos, c->p2);
 	
