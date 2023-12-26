@@ -43,7 +43,9 @@ typedef struct rbp_collider {
 	RBP_COLLIDER_PROPS \
 	rbp_collider_type collider_type; \
 	Vector3 offset; \
-	float restitution;
+	float e; \
+	float uf_static; \
+	float uf_dynamic;
 
 	RBP_COLLIDER_PROPS
 } rbp_collider;
@@ -89,7 +91,7 @@ typedef struct rbp_body {
 	 * Attention: must return support points in world space! */
 	/* Vector3 (*support)(struct rbp_body *self, Vector3 direction); */
 
-	/* Collider type and a pointer to the collider */
+	/* Pointer to a body collider */
 	void *collider;
 } rbp_body;
 
@@ -105,16 +107,19 @@ typedef struct rbp_contact {
 	 * p2 = contact point for b2 in world space
 	 * cn = collision normal (b1->b2, normalized)
 	 * depth = penetration depth
-	 * restitution = coefficient of restitution of the collision
+	 * e = coefficient of restitution of the collision
+	 * uf_static = coefficient of friction (static)
+	 * uf_dynamic = coefficient of friction (dynamic)
 	 */
-
 	rbp_body *b1;
 	rbp_body *b2;
 	Vector3 p1;
 	Vector3 p2;
 	Vector3 cn;
 	float depth;
-	float restitution;
+	float e;
+	float uf_static;
+	float uf_dynamic;
 } rbp_contact;
 
 /* Additional math functions */
@@ -241,7 +246,7 @@ rbp_collide_sphere_sphere(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 		c->depth = depth;
 		c->p1 = Vector3Add(pos1, Vector3Scale(cn, r1));
 		c->p2 = Vector3Add(c->p1, Vector3Scale(cn, depth));
-		c->restitution = c1->restitution * c2->restitution;
+		c->e= c1->e * c2->e;
 		return 1;
 	}
 	/* Miss, return 0, don't touch c. */
@@ -279,7 +284,7 @@ rbp_collide_sphere_cuboid(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 		 * cuboid (b2) to the sphere (b1) */
 		c->b1 = b2;
 		c->b2 = b1;
-		c->restitution = c1->restitution * c2->restitution;
+		c->e = c1->e * c2->e;
 
 		/* Build the contact normal and points in local space */
 		c->p1.x = dx >= 0 ? xsize * relpos1.x / fabsf(relpos1.x) : relpos1.x;
@@ -396,7 +401,7 @@ rbp_resolve_collision(rbp_contact *c, float dt)
 	Vector3 pos1 = c->p1;
 	Vector3 pos2 = c->p2;
 	Vector3 cn = c->cn;
-	float e = c->restitution;
+	float e = c->e;
 	float depth = c->depth;
 
 	float minv = b1->Minv + b2->Minv;
@@ -414,13 +419,16 @@ rbp_resolve_collision(rbp_contact *c, float dt)
 	dL1 = Vector3Scale(dL1, j);
 	dL2 = Vector3Scale(dL2, j);
 
+	/* Calculate friction */
+	/* TO DO */
+
 	/* adjust positions to eliminate penetration */
 	Vector3 ds1 = Vector3Scale(cn, depth*b1->Minv / minv);
 	Vector3 ds2 = Vector3Scale(cn, depth*b2->Minv / minv);
 	b1->pos = Vector3Subtract(b1->pos, ds1);
 	b2->pos = Vector3Add(b2->pos, ds2);
 
-	/* Update bodies */
+	/* Update bodies' properties */
 	b1->p = Vector3Subtract(b1->p, dp);
 	b1->L = Vector3Subtract(b1->L, dL1);
 	b2->p = Vector3Add(b2->p, dp);

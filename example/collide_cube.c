@@ -27,7 +27,13 @@ int main()
 	planet.p = Vector3Zero();
 	planet.dir = QuaternionIdentity();
 	planet.L = (Vector3) {0.0f, 20.0f, 0.0f};
-	rbp_collider_sphere planet_collider = {SPHERE, {0.0f, 0.0f, 0.0f}, 0.99f, 1.0f};
+	rbp_collider_sphere planet_collider ={
+		SPHERE,
+		{0.0f, 0.0f, 0.0f},
+		0.99f,
+		0.5f,
+		0.2f,
+		1.0f};
 	planet.collider = &planet_collider;
 
 	rbp_body sun;
@@ -41,6 +47,8 @@ int main()
 		CUBOID,
 		{0.0f,0.0f,0.0f},
 		0.99f,
+		0.5f,
+		0.2f,
 		QuaternionIdentity(),
 		10.0f,
 		10.0f,
