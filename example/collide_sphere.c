@@ -26,7 +26,7 @@ int main()
 	planet.pos = (Vector3) {12.0f, 0.0f, 0.0f};
 	planet.p = (Vector3) {0.0f, 2.0f, 6.7f};
 	planet.dir = QuaternionIdentity();
-	planet.L = (Vector3) {0.0f, -8.0f, 0.0f};
+	planet.L = (Vector3) {0.0f, 0.0f, 0.0f};
 	rbp_collider_sphere planet_collider = {SPHERE, {0.0f, 0.0f, 0.0f}, 0.99f, 1.0f};
 	planet.collider = &planet_collider;
 
@@ -86,7 +86,6 @@ int main()
 			/* collide! */
 			if (rbp_collide(&planet, &sun, &contact)) {
 				rbp_resolve_collision(&contact, dt);
-				printf("depth: %.3f\n", contact.depth);
 			}
 		}
 

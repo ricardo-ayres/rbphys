@@ -23,10 +23,10 @@ int main()
 	rbp_body planet;
 	planet.Minv = 1.0f;
 	planet.Ibinv = MatrixIdentity();
-	planet.pos = (Vector3) {10.0f, 0.0f, 10.0f};
+	planet.pos = (Vector3) {10.0f, 0.0f, 8.0f};
 	planet.p = Vector3Zero();
 	planet.dir = QuaternionIdentity();
-	planet.L = (Vector3) {0.0f, 0.0f, 0.0f};
+	planet.L = (Vector3) {0.0f, 20.0f, 0.0f};
 	rbp_collider_sphere planet_collider = {SPHERE, {0.0f, 0.0f, 0.0f}, 0.99f, 1.0f};
 	planet.collider = &planet_collider;
 
@@ -36,7 +36,7 @@ int main()
 	sun.pos = Vector3Zero();
 	sun.p = Vector3Zero();
 	sun.dir = QuaternionIdentity();
-	sun.L = Vector3Zero();
+	sun.L = (Vector3) {0.0f, 1.0f, 0.0f};
 	rbp_collider_cuboid sun_collider = {
 		CUBOID,
 		{0.0f,0.0f,0.0f},
@@ -90,7 +90,6 @@ int main()
 			/* Check collisions, reset planet if hit */
 			if (rbp_collide(&planet, &sun, &contact)) {
 				rbp_resolve_collision(&contact, dt);
-				printf("depth: %.3f\n", contact.depth);
 			}
 		}
 

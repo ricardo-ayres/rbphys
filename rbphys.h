@@ -30,12 +30,9 @@ rbphys is a simple rigid body physics library based on raymath.
 
 /* Collider data types */
 typedef enum {
-	SPHERE = 0,
+	HEIGHTMAP = 0,
+	SPHERE,
 	CUBOID,
-
-	/* Add new colliders before this line, above the HEIGHTMAP.
-	 * Heightmap won't have a heightmap vs heightmap collider. */
-	HEIGHTMAP
 } rbp_collider_type;
 
 /*  This is the 'parent' struct that should be 'inherited' by all collider
@@ -181,9 +178,18 @@ rbp_rotate(rbp_body *b, float dt)
 }
 
 /* Simple shortcut to call both functions above and update the body */
-void rbp_update(rbp_body *b, float dt) {
+void
+rbp_update(rbp_body *b, float dt)
+{
 	b->pos = rbp_displace(b, dt);
 	b->dir = rbp_rotate(b, dt);
+}
+
+void
+rbp_rewind(rbp_body *b, float dt)
+{
+	b->pos = rbp_displace(b, -1.0f*dt);
+	b->dir = rbp_rotate(b, -1.0f*dt);
 }
 
 /* Force application functions */
@@ -211,7 +217,8 @@ rbp_bspace_force(rbp_body *b, Vector3 force, Vector3 pos, float dt)
 }
 
 /* Collision functions */
-int rbp_collide_sphere_sphere(rbp_body *b1, rbp_body *b2, rbp_contact *c)
+int
+rbp_collide_sphere_sphere(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 {
 	rbp_collider_sphere *c1 = b1->collider;
 	rbp_collider_sphere *c2 = b2->collider;
@@ -241,7 +248,8 @@ int rbp_collide_sphere_sphere(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 	return 0;
 }
 
-int rbp_collide_sphere_cuboid(rbp_body *b1, rbp_body *b2, rbp_contact *c)
+int
+rbp_collide_sphere_cuboid(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 {
 	rbp_collider_sphere *c1 = b1->collider;
 	rbp_collider_cuboid *c2 = b2->collider;
@@ -286,15 +294,12 @@ int rbp_collide_sphere_cuboid(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 			return 0;
 		}
 
-		c->p2 = Vector3Add(c->p1, c->cn);
-		c->cn = Vector3Normalize(c->cn);
-	
 		/* Send the contact normal and points to world space */
 		c->cn = Vector3RotateByQuaternion(c->cn, dir2);
 		c->p1 = Vector3RotateByQuaternion(c->p1, dir2);
-		c->p2 = Vector3RotateByQuaternion(c->p2, dir2);
 		c->p1 = Vector3Add(c->b1->pos, c->p1);
-		c->p2 = Vector3Add(c->b2->pos, c->p2);
+		c->p2 = Vector3Add(c->p1, c->cn);
+		c->cn = Vector3Normalize(c->cn);
 	
 		return 1;
 	}
@@ -396,12 +401,6 @@ rbp_resolve_collision(rbp_contact *c, float dt)
 
 	float minv = b1->Minv + b2->Minv;
 
-	/* adjust positions to eliminate penetration */
-	Vector3 ds1 = Vector3Scale(cn, depth*b1->Minv / minv);
-	Vector3 ds2 = Vector3Scale(cn, depth*b2->Minv / minv);
-	b1->pos = Vector3Subtract(b1->pos, ds1);
-	b2->pos = Vector3Add(b2->pos, ds2);
-
 	/* Calculate impulse magnitude */
 	Vector3 relp = Vector3Subtract(b1->p, b2->p);
 	float j = e*Vector3DotProduct(relp, cn);
@@ -414,6 +413,12 @@ rbp_resolve_collision(rbp_contact *c, float dt)
 	Vector3 dL2 = Vector3CrossProduct(r2, cn);
 	dL1 = Vector3Scale(dL1, j);
 	dL2 = Vector3Scale(dL2, j);
+
+	/* adjust positions to eliminate penetration */
+	Vector3 ds1 = Vector3Scale(cn, depth*b1->Minv / minv);
+	Vector3 ds2 = Vector3Scale(cn, depth*b2->Minv / minv);
+	b1->pos = Vector3Subtract(b1->pos, ds1);
+	b2->pos = Vector3Add(b2->pos, ds2);
 
 	/* Update bodies */
 	b1->p = Vector3Subtract(b1->p, dp);
