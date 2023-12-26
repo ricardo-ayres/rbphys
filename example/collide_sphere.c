@@ -8,7 +8,7 @@ int main()
 {
 	InitWindow(640, 480, "rbphys");
 
-	SetTargetFPS(120.0);
+	SetTargetFPS(60.0);
 	float dt = 1.0 / 60.0;
 
 	Image checked = GenImageChecked(2, 2, 1, 1, RED, GREEN);
@@ -23,27 +23,25 @@ int main()
 	rbp_body planet;
 	planet.Minv = 1.0f;
 	planet.Ibinv = MatrixIdentity();
-	planet.pos = (Vector3) {15.0f, 0.0f, 0.0f};
-	planet.p = (Vector3) {0.0f, 0.0f, 1.0f};
+	planet.pos = (Vector3) {12.0f, 0.0f, 0.0f};
+	planet.p = (Vector3) {0.0f, 2.0f, 6.7f};
 	planet.dir = QuaternionIdentity();
 	planet.L = (Vector3) {0.0f, -8.0f, 0.0f};
-	planet.collider_type = SPHERE;
-	rbp_sphere_collider planet_collider = {{0.0f, 0.0f, 0.0f}, 0.99f, 1.0f};
+	rbp_collider_sphere planet_collider = {SPHERE, {0.0f, 0.0f, 0.0f}, 0.99f, 1.0f};
 	planet.collider = &planet_collider;
 
 	rbp_body sun;
-	sun.Minv = 0.01f;
+	sun.Minv = 0.1f;
 	sun.Ibinv = MatrixIdentity();
 	sun.pos = Vector3Zero();
-	sun.p = (Vector3) {0.0f, 0.0f, -0.001f};
+	sun.p = (Vector3) {0.0f, -2.0f, -6.7f};
 	sun.dir = QuaternionIdentity();
 	sun.L = Vector3Zero();
-	sun.collider_type = SPHERE;
-	rbp_sphere_collider sun_collider = {{0.0f, 0.0f, 0.0f}, 0.99f, 5.0f};
+	rbp_collider_sphere sun_collider = {SPHERE, {0.0f, 0.0f, 0.0f}, 0.99f, 5.0f};
 	sun.collider = &sun_collider;
 
 	Camera3D camera = { 0 };
-	camera.position = (Vector3) {0.0f, 40.0f, -1.0f};
+	camera.position = (Vector3) {-35.0f, 20.0f, -35.0f};
 	camera.target = Vector3Zero();
 	camera.up = (Vector3) {0.0f, 1.0f, 0.0f};
 	camera.fovy = 45.0f;
@@ -72,18 +70,20 @@ int main()
 		time = now;
 
 		while (time_pool >= dt) {
-			Vector3 separation = Vector3Subtract(planet.pos, sun.pos);
-			float r2 = Vector3DotProduct(separation, separation);
-			Vector3 g = Vector3Normalize(separation);
+			Vector3 relpos = Vector3Subtract(planet.pos, sun.pos);
+			float r2 = Vector3DotProduct(relpos, relpos);
+			Vector3 g = Vector3Normalize(relpos);
+			Vector3 drag = Vector3Scale(planet.p, -0.01f);
 			g = Vector3Scale(g, -1600.0f/r2);
-
 			rbp_wspace_force(&planet, g, planet.pos, dt);
+			rbp_wspace_force(&planet, drag, planet.pos, dt);
 			rbp_wspace_force(&sun, Vector3Scale(g, -1.0f), sun.pos, dt);
 
 			rbp_update(&planet, dt);
 			rbp_update(&sun, dt);
 			time_pool -= dt;
 
+			/* collide! */
 			if (rbp_collide(&planet, &sun, &contact)) {
 				rbp_resolve_collision(&contact, dt);
 			}

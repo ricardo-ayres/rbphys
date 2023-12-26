@@ -23,12 +23,11 @@ int main()
 	rbp_body planet;
 	planet.Minv = 1.0f;
 	planet.Ibinv = MatrixIdentity();
-	planet.pos = (Vector3) {8.0f, 8.0f, 8.0f};
-	planet.p = (Vector3) {0.0f, 0.0f, 0.0f};
+	planet.pos = (Vector3) {10.0f, 0.0f, 1.0f};
+	planet.p = Vector3Zero();
 	planet.dir = QuaternionIdentity();
 	planet.L = (Vector3) {0.0f, 0.0f, 0.0f};
-	planet.collider_type = SPHERE;
-	rbp_sphere_collider planet_collider = {{0.0f, 0.0f, 0.0f}, 0.99f, 1.0f};
+	rbp_collider_sphere planet_collider = {SPHERE, {0.0f, 0.0f, 0.0f}, 0.99f, 1.0f};
 	planet.collider = &planet_collider;
 
 	rbp_body sun;
@@ -38,11 +37,11 @@ int main()
 	sun.p = Vector3Zero();
 	sun.dir = QuaternionIdentity();
 	sun.L = Vector3Zero();
-	sun.collider_type = CUBOID;
-	rbp_cuboid_collider sun_collider = {
+	rbp_collider_cuboid sun_collider = {
+		CUBOID,
 		{0.0f,0.0f,0.0f},
-		QuaternionIdentity(),
 		0.99f,
+		QuaternionIdentity(),
 		10.0f,
 		10.0f,
 		10.0f};

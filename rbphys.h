@@ -32,22 +32,41 @@ rbphys is a simple rigid body physics library based on raymath.
 typedef enum {
 	SPHERE,
 	CUBOID,
+	HEIGHTMAP,
 } rbp_collider_type;
 
-typedef struct rbp_sphere_collider {
-	Vector3 offset; /* position relative to rbp_body->pos */
-	float restitution;
-	float radius;
-} rbp_sphere_collider;
+/*  This is the 'parent' struct that should be 'inherited' by all collider
+ * types.
+ */
 
-typedef struct rbp_cuboid_collider {
-	Vector3 offset; /* position relative to rbp_body->pos */
-	Quaternion dir; /* orientation relative to rbp_body->dir */
+#define RBP_COLLIDER_PROPS \
+	rbp_collider_type collider_type; \
+	Vector3 offset; \
 	float restitution;
+
+
+typedef struct rbp_collider {
+	RBP_COLLIDER_PROPS
+} rbp_collider;
+
+typedef struct rbp_collider_sphere {
+	RBP_COLLIDER_PROPS /* inherit from rbp_collider */
+
+	float radius;
+} rbp_collider_sphere;
+
+typedef struct rbp_collider_cuboid {
+	RBP_COLLIDER_PROPS /* inherit from rbp_collider */
+
+	Quaternion dir;
 	float xsize;
 	float ysize;
 	float zsize;
-} rbp_cuboid_collider;
+} rbp_collider_cuboid;
+
+typedef struct rbp_collider_heightmap {
+	RBP_COLLIDER_PROPS /* inherit from rbp_collider */
+} rbp_collider_heightmap;
 
 /* Body data type */
 typedef struct rbp_body {
@@ -72,7 +91,6 @@ typedef struct rbp_body {
 	/* Vector3 (*support)(struct rbp_body *self, Vector3 direction); */
 
 	/* Collider type and a pointer to the collider */
-	rbp_collider_type collider_type;
 	void *collider;
 } rbp_body;
 
@@ -86,7 +104,9 @@ typedef struct rbp_contact {
 	/* b1 and b2 = bodies involved in the collision
 	 * p1 = contact point for b1 in world space
 	 * p2 = contact point for b2 in world space
-	 * cn = collision normal (b1->b2, not normalized, includes distance info)
+	 * cn = collision normal (b1->b2, normalized)
+	 * depth = penetration depth
+	 * restitution = coefficient of restitution of the collision
 	 */
 
 	rbp_body *b1;
@@ -94,6 +114,7 @@ typedef struct rbp_contact {
 	Vector3 p1;
 	Vector3 p2;
 	Vector3 cn;
+	float depth;
 	float restitution;
 } rbp_contact;
 
@@ -190,28 +211,27 @@ rbp_bspace_force(rbp_body *b, Vector3 force, Vector3 pos, float dt)
 /* Collision functions */
 int rbp_collide_sphere_sphere(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 {
-	rbp_sphere_collider *c1 = b1->collider;
-	rbp_sphere_collider *c2 = b2->collider;
+	rbp_collider_sphere *c1 = b1->collider;
+	rbp_collider_sphere *c2 = b2->collider;
 	float r1 = c1->radius;
 	float r2 = c2->radius;
 	Vector3 pos1 = Vector3Add(b1->pos, c1->offset);
 	Vector3 pos2 = Vector3Add(b2->pos, c2->offset);
 
-	Vector3 cn = Vector3Subtract(pos1, pos2); /* vector from center to center */
+	Vector3 cn = Vector3Subtract(pos2, pos1); /* vector from center to center */
 	float center_distance = Vector3Length(cn);
 	float total_radius = r1 + r2;
-	float separation = center_distance - total_radius;
+	float depth = total_radius - center_distance;
 
-	if (separation < 0) {
+	if (depth > 0) {
 		/* Hit! Calculate contact, update c and return 1 */
+		cn = Vector3Normalize(cn);
+		c->cn = cn;
 		c->b1 = b1;
 		c->b2 = b2;
-		c->cn = Vector3Scale(cn, separation/center_distance);
-
-		c->p1 = Vector3Add(
-			pos1,
-			Vector3Scale(cn, r1/center_distance));
-		c->p2 = Vector3Add(c->p1, c->cn);
+		c->depth = depth;
+		c->p1 = Vector3Add(pos1, Vector3Scale(cn, r1));
+		c->p2 = Vector3Add(c->p1, Vector3Scale(cn, depth));
 		c->restitution = c1->restitution * c2->restitution;
 		return 1;
 	}
@@ -221,8 +241,8 @@ int rbp_collide_sphere_sphere(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 
 int rbp_collide_sphere_cuboid(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 {
-	rbp_sphere_collider *c1 = b1->collider;
-	rbp_cuboid_collider *c2 = b2->collider;
+	rbp_collider_sphere *c1 = b1->collider;
+	rbp_collider_cuboid *c2 = b2->collider;
 
 	Vector3 pos1 = Vector3Add(b1->pos, c1->offset);
 	float r1 = c1->radius;
@@ -257,9 +277,9 @@ int rbp_collide_sphere_cuboid(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 		c->p1.z = dz > 0 ? zsize * relpos1.z / fabsf(relpos1.z) : relpos1.z;
 
 		c->cn = Vector3Subtract(relpos1, c->p1);
-		float depth = r1 - Vector3Length(c->cn);
-		c->cn = Vector3Scale(Vector3Normalize(c->cn), depth);
-		c->p2 = Vector3Add(c->p1, c->p2);
+		c->depth = r1 - Vector3Length(c->cn);
+		c->p2 = Vector3Add(c->p1, c->cn);
+		c->cn = Vector3Normalize(c->cn);
 	
 		/* Send the contact normal and points to world space */
 		c->cn = Vector3RotateByQuaternion(c->cn, dir2);
@@ -286,17 +306,23 @@ int rbp_collide(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 	rbp_body *b;
 	int (*collide)(rbp_body*, rbp_body*, rbp_contact*);
 
-	/* Ensure smallest collider_type goes as b1 */
-	if (b1->collider_type < b2->collider_type) {
-		a = b1;
-		b = b2;
-	} else {
+	rbp_collider_type a_type = ((rbp_collider *) b1->collider)->collider_type;
+	rbp_collider_type b_type = ((rbp_collider *) b2->collider)->collider_type;
+
+	/* Ensure smallest collider_type goes in as b1 */
+	a = b1;
+	b = b2;
+	if (a_type > b_type) {
 		a = b2;
 		b = b1;
+
+		rbp_collider_type tmp = a_type;
+		a_type = b_type;
+		b_type = tmp;
 	}
-	switch (a->collider_type) {
+	switch (a_type) {
 	case SPHERE:
-		switch (b->collider_type) {
+		switch (b_type) {
 		case SPHERE: /* sphere vs sphere */
 			collide = rbp_collide_sphere_sphere;
 			break;
@@ -308,7 +334,7 @@ int rbp_collide(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 		break;
 
 	case CUBOID:
-		switch (b->collider_type) {
+		switch (b_type) {
 		case CUBOID: /* cuboid vs cuboid */
 			collide = rbp_collide_cuboid_cuboid;
 			break;
@@ -333,17 +359,17 @@ rbp_resolve_collision(rbp_contact *c, float dt)
 	Vector3 pos2 = c->p2;
 	Vector3 cn = c->cn;
 	float e = c->restitution;
+	float depth = c->depth;
 
 	float minv = b1->Minv + b2->Minv;
 
 	/* adjust positions to eliminate penetration */
-	Vector3 ds1 = Vector3Scale(cn, b1->Minv / minv);
-	Vector3 ds2 = Vector3Scale(cn, b2->Minv / minv);
+	Vector3 ds1 = Vector3Scale(cn, depth*b1->Minv / minv);
+	Vector3 ds2 = Vector3Scale(cn, depth*b2->Minv / minv);
 	b1->pos = Vector3Subtract(b1->pos, ds1);
 	b2->pos = Vector3Add(b2->pos, ds2);
 
 	/* Calculate impulse magnitude */
-	cn = Vector3Normalize(cn);
 	Vector3 relp = Vector3Subtract(b1->p, b2->p);
 	float j = e*Vector3DotProduct(relp, cn);
 	Vector3 dp = Vector3Scale(cn, j);

@@ -6,18 +6,18 @@ int main(void)
 
     // Define our custom camera to look into our 3d world
     Camera camera = { 0 };
-    camera.position = (Vector3){ -50.0f, 50.0f, -50.0f };     // Camera position
-    camera.target = (Vector3){ 0.0f, 25.0f, 0.0f };          // Camera looking at point
+    camera.position = (Vector3){ -150.0f, 150.0f, -150.0f };   // Camera position
+    camera.target = (Vector3){ 0.0f, 0.0f, 0.0f };         // Camera looking at point
     camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };              // Camera up vector (rotation towards target)
     camera.fovy = 45.0f;                                    // Camera field-of-view Y
     camera.projection = CAMERA_PERSPECTIVE;                 // Camera projection type
 
-    Image elevation_img = LoadImage("heightmap.png");     // Load heightmap image (RAM)
+    Image elevation_img = LoadImage("heightmap.png");       // Load heightmap image (RAM)
     Image texture_img = LoadImage("texture.png");
-    Texture2D texture = LoadTextureFromImage(texture_img);        // Convert image to texture (VRAM)
+    Texture2D texture = LoadTextureFromImage(texture_img); // Convert image to texture (VRAM)
 
-    Mesh mesh = GenMeshHeightmap(elevation_img, (Vector3){ 16, 1, 16 }); // Generate heightmap mesh (RAM and VRAM)
-    Model model = LoadModelFromMesh(mesh);                  // Load model from generated mesh
+    Mesh heightmap_mesh = GenMeshHeightmap(elevation_img, (Vector3){ 16, 1, 16 });
+    Model model = LoadModelFromMesh(heightmap_mesh);
 
     model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture; // Set map diffuse texture
     Vector3 mapPosition = { 0.0f, 0.0f, 0.0f };           // Define model position
@@ -45,8 +45,6 @@ int main(void)
             BeginMode3D(camera);
 
                 DrawModel(model, mapPosition, 10.0f, WHITE);
-
-                //DrawGrid(20, 1.0f);
 
             EndMode3D();
 

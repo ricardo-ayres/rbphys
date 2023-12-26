@@ -3,6 +3,5 @@ const_rotation
 top
 orbit
 heightmap
-collide
+collide_sphere
 collide_cube
-response
