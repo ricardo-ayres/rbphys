@@ -23,7 +23,7 @@ int main()
 	rbp_body planet;
 	planet.Minv = 1.0f;
 	planet.Ibinv = MatrixIdentity();
-	planet.pos = (Vector3) {10.0f, 0.0f, 1.0f};
+	planet.pos = (Vector3) {10.0f, 0.0f, 10.0f};
 	planet.p = Vector3Zero();
 	planet.dir = QuaternionIdentity();
 	planet.L = (Vector3) {0.0f, 0.0f, 0.0f};
@@ -90,6 +90,7 @@ int main()
 			/* Check collisions, reset planet if hit */
 			if (rbp_collide(&planet, &sun, &contact)) {
 				rbp_resolve_collision(&contact, dt);
+				printf("depth: %.3f\n", contact.depth);
 			}
 		}
 

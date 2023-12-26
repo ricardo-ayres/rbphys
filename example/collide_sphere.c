@@ -86,6 +86,7 @@ int main()
 			/* collide! */
 			if (rbp_collide(&planet, &sun, &contact)) {
 				rbp_resolve_collision(&contact, dt);
+				printf("depth: %.3f\n", contact.depth);
 			}
 		}
 

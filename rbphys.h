@@ -30,22 +30,24 @@ rbphys is a simple rigid body physics library based on raymath.
 
 /* Collider data types */
 typedef enum {
-	SPHERE,
+	SPHERE = 0,
 	CUBOID,
-	HEIGHTMAP,
+
+	/* Add new colliders before this line, above the HEIGHTMAP.
+	 * Heightmap won't have a heightmap vs heightmap collider. */
+	HEIGHTMAP
 } rbp_collider_type;
 
 /*  This is the 'parent' struct that should be 'inherited' by all collider
  * types.
  */
-
-#define RBP_COLLIDER_PROPS \
+typedef struct rbp_collider {
+#define \
+	RBP_COLLIDER_PROPS \
 	rbp_collider_type collider_type; \
 	Vector3 offset; \
 	float restitution;
 
-
-typedef struct rbp_collider {
 	RBP_COLLIDER_PROPS
 } rbp_collider;
 
@@ -272,12 +274,18 @@ int rbp_collide_sphere_cuboid(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 		c->restitution = c1->restitution * c2->restitution;
 
 		/* Build the contact normal and points in local space */
-		c->p1.x = dx > 0 ? xsize * relpos1.x / fabsf(relpos1.x) : relpos1.x;
-		c->p1.y = dy > 0 ? ysize * relpos1.y / fabsf(relpos1.y) : relpos1.y;
-		c->p1.z = dz > 0 ? zsize * relpos1.z / fabsf(relpos1.z) : relpos1.z;
+		c->p1.x = dx >= 0 ? xsize * relpos1.x / fabsf(relpos1.x) : relpos1.x;
+		c->p1.y = dy >= 0 ? ysize * relpos1.y / fabsf(relpos1.y) : relpos1.y;
+		c->p1.z = dz >= 0 ? zsize * relpos1.z / fabsf(relpos1.z) : relpos1.z;
 
 		c->cn = Vector3Subtract(relpos1, c->p1);
 		c->depth = r1 - Vector3Length(c->cn);
+
+		if (c->depth < 0) {
+			/* abort on false positives on corner collisions */
+			return 0;
+		}
+
 		c->p2 = Vector3Add(c->p1, c->cn);
 		c->cn = Vector3Normalize(c->cn);
 	
@@ -294,13 +302,30 @@ int rbp_collide_sphere_cuboid(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 	return 0;
 }
 
-int rbp_collide_cuboid_cuboid(rbp_body *b1, rbp_body *b2, rbp_contact *c)
+int
+rbp_collide_cuboid_cuboid(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 {
 	/* IMPLEMENT */
 	return 0;
 }
 
-int rbp_collide(rbp_body *b1, rbp_body *b2, rbp_contact *c)
+/* shapes vs heigthmap collisions */
+int
+rbp_collide_sphere_heightmap()
+{
+	/* IMPLEMENT */
+	return 0;
+}
+
+int
+rbp_collide_cuboid_heightmap()
+{
+	/* IMPLEMENT */
+	return 0;
+}
+
+int
+rbp_collide(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 {
 	rbp_body *a;
 	rbp_body *b;
@@ -329,6 +354,10 @@ int rbp_collide(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 		case CUBOID: /* sphere vs cuboid */
 			collide = rbp_collide_sphere_cuboid;
 			break;
+
+		case HEIGHTMAP: /* sphere vs heightmap */
+			collide = rbp_collide_sphere_heightmap;
+			break;
 		default: return 0;
 		}
 		break;
@@ -337,6 +366,10 @@ int rbp_collide(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 		switch (b_type) {
 		case CUBOID: /* cuboid vs cuboid */
 			collide = rbp_collide_cuboid_cuboid;
+			break;
+
+		case HEIGHTMAP: /* cuboid vs heightmap */
+			collide = rbp_collide_cuboid_heightmap;
 			break;
 		default: return 0;
 		}
