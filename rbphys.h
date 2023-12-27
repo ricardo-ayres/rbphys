@@ -28,6 +28,10 @@ rbphys is a simple rigid body physics library based on raymath.
 
 #include <raymath.h>
 
+/* Shorthands for raymath functions */
+#define DOT(a, b) Vector3DotProduct(a, b)
+#define X(a, b) Vector3CrossProduct(a, b)
+
 /* Collider data types */
 typedef enum {
 	HEIGHTMAP = 0,
@@ -37,6 +41,11 @@ typedef enum {
 
 /*  This is the 'parent' struct that should be 'inherited' by all collider
  * types.
+ * collider_type = shape of the collider;
+ * offset = position of the collider relative to body position;
+ * e = partial coefficient of restitution;
+ * uf_s = coefficient of friction (static);
+ * uf_d = coefficient of friction (dynamic);
  */
 typedef struct rbp_collider {
 #define \
@@ -44,8 +53,8 @@ typedef struct rbp_collider {
 	rbp_collider_type collider_type; \
 	Vector3 offset; \
 	float e; \
-	float uf_static; \
-	float uf_dynamic;
+	float uf_s; \
+	float uf_d;
 
 	RBP_COLLIDER_PROPS
 } rbp_collider;
@@ -108,8 +117,8 @@ typedef struct rbp_contact {
 	 * cn = collision normal (b1->b2, normalized)
 	 * depth = penetration depth
 	 * e = coefficient of restitution of the collision
-	 * uf_static = coefficient of friction (static)
-	 * uf_dynamic = coefficient of friction (dynamic)
+	 * uf_s = coefficient of friction (static)
+	 * uf_d = coefficient of friction (dynamic)
 	 */
 	rbp_body *b1;
 	rbp_body *b2;
@@ -118,8 +127,8 @@ typedef struct rbp_contact {
 	Vector3 cn;
 	float depth;
 	float e;
-	float uf_static;
-	float uf_dynamic;
+	float uf_s;
+	float uf_d;
 } rbp_contact;
 
 /* Additional math functions */
@@ -205,7 +214,7 @@ rbp_wspace_force(rbp_body *b, Vector3 force, Vector3 pos, float dt)
 {
 	Vector3 dp = Vector3Scale(force, dt);
 	Vector3 r = Vector3Subtract(pos, b->pos);
-	Vector3 dL = Vector3CrossProduct(r, dp);
+	Vector3 dL = X(r, dp);
 
 	b->p = Vector3Add(b->p, dp);
 	b->L = Vector3Add(b->L, dL);
@@ -247,6 +256,8 @@ rbp_collide_sphere_sphere(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 		c->p1 = Vector3Add(pos1, Vector3Scale(cn, r1));
 		c->p2 = Vector3Add(c->p1, Vector3Scale(cn, depth));
 		c->e= c1->e * c2->e;
+		c->uf_s = c1->uf_s + c2->uf_s;
+		c->uf_d = c1->uf_d + c2->uf_d;
 		return 1;
 	}
 	/* Miss, return 0, don't touch c. */
@@ -285,6 +296,8 @@ rbp_collide_sphere_cuboid(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 		c->b1 = b2;
 		c->b2 = b1;
 		c->e = c1->e * c2->e;
+		c->uf_s = c1->uf_s + c2->uf_s;
+		c->uf_d = c1->uf_d + c2->uf_d;
 
 		/* Build the contact normal and points in local space */
 		c->p1.x = dx >= 0 ? xsize * relpos1.x / fabsf(relpos1.x) : relpos1.x;
@@ -401,26 +414,28 @@ rbp_resolve_collision(rbp_contact *c, float dt)
 	Vector3 pos1 = c->p1;
 	Vector3 pos2 = c->p2;
 	Vector3 cn = c->cn;
-	float e = c->e;
 	float depth = c->depth;
+	float e = c->e;
+	float uf_s = c->uf_s;
+	float uf_d = c->uf_d;
 
 	float minv = b1->Minv + b2->Minv;
 
 	/* Calculate impulse magnitude */
 	Vector3 relp = Vector3Subtract(b1->p, b2->p);
-	float j = e*Vector3DotProduct(relp, cn);
+	float j = e * DOT(relp, cn);
 	Vector3 dp = Vector3Scale(cn, j);
 
 	/* Calculate moments */
 	Vector3 r1 = Vector3Subtract(pos1, b1->pos);
 	Vector3 r2 = Vector3Subtract(pos2, b2->pos);
-	Vector3 dL1 = Vector3CrossProduct(r1, cn);
-	Vector3 dL2 = Vector3CrossProduct(r2, cn);
+	Vector3 dL1 = X(r1, cn);
+	Vector3 dL2 = X(r2, cn);
 	dL1 = Vector3Scale(dL1, j);
 	dL2 = Vector3Scale(dL2, j);
 
 	/* Calculate friction */
-	/* TO DO */
+	/* TODO */
 
 	/* adjust positions to eliminate penetration */
 	Vector3 ds1 = Vector3Scale(cn, depth*b1->Minv / minv);

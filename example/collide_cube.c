@@ -31,7 +31,7 @@ int main()
 		SPHERE,
 		{0.0f, 0.0f, 0.0f},
 		0.99f,
-		0.5f,
+		0.3f,
 		0.2f,
 		1.0f};
 	planet.collider = &planet_collider;
@@ -47,7 +47,7 @@ int main()
 		CUBOID,
 		{0.0f,0.0f,0.0f},
 		0.99f,
-		0.5f,
+		0.3f,
 		0.2f,
 		QuaternionIdentity(),
 		10.0f,

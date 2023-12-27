@@ -31,8 +31,8 @@ int main()
 		SPHERE,
 		{0.0f, 0.0f, 0.0f},
 		0.99f,
-		0.5f,
-		0.2f,
+		0.10f,
+		0.08f,
 		1.0f};
 	planet.collider = &planet_collider;
 
@@ -47,8 +47,8 @@ int main()
 		SPHERE,
 		{0.0f, 0.0f, 0.0f}, 
 		0.99f, 
-		0.5f, 
-		0.2f, 
+		0.10f, 
+		0.08f, 
 		5.0f};
 	sun.collider = &sun_collider;
 
