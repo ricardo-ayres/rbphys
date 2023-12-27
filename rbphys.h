@@ -29,6 +29,7 @@ rbphys is a simple rigid body physics library based on raymath.
 #include <raymath.h>
 
 /* Shorthands for raymath functions */
+#define NEG(a) Vector3Negate(a)
 #define DOT(a, b) Vector3DotProduct(a, b)
 #define X(a, b) Vector3CrossProduct(a, b)
 
@@ -314,11 +315,11 @@ rbp_collide_sphere_cuboid(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 
 		/* Send the contact normal and points to world space */
 		c->cn = Vector3RotateByQuaternion(c->cn, dir2);
+		c->cn = Vector3Normalize(c->cn);
 		c->p1 = Vector3RotateByQuaternion(c->p1, dir2);
 		c->p1 = Vector3Add(c->b1->pos, c->p1);
-		c->p2 = Vector3Add(c->p1, c->cn);
-		c->cn = Vector3Normalize(c->cn);
-	
+		c->p2 = Vector3Add(c->b2->pos, Vector3Scale(c->cn, -1.0f*r1));
+
 		return 1;
 	}
 
@@ -408,7 +409,7 @@ rbp_collide(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 void
 rbp_resolve_collision(rbp_contact *c, float dt)
 {
-	/* unpack c to make it easier */
+	/* unpack c */
 	rbp_body *b1 = c->b1;
 	rbp_body *b2 = c->b2;
 	Vector3 pos1 = c->p1;
@@ -419,33 +420,64 @@ rbp_resolve_collision(rbp_contact *c, float dt)
 	float uf_s = c->uf_s;
 	float uf_d = c->uf_d;
 
-	float minv = b1->Minv + b2->Minv;
-
 	/* Calculate impulse magnitude */
-	Vector3 relp = Vector3Subtract(b1->p, b2->p);
-	float j = e * DOT(relp, cn);
-	Vector3 dp = Vector3Scale(cn, j);
+	Vector3 relp = Vector3Subtract(b2->p, b1->p);
+	float relp_n = -1.0f*fabsf(DOT(relp, cn));
+
+	float j = e * relp_n;
+	Vector3 dp1 = Vector3Scale(cn, j);
+	Vector3 dp2 = NEG(dp1);
 
 	/* Calculate moments */
 	Vector3 r1 = Vector3Subtract(pos1, b1->pos);
 	Vector3 r2 = Vector3Subtract(pos2, b2->pos);
-	Vector3 dL1 = X(r1, cn);
-	Vector3 dL2 = X(r2, cn);
-	dL1 = Vector3Scale(dL1, j);
-	dL2 = Vector3Scale(dL2, j);
+	Vector3 dL1 = Vector3Scale(X(r1, cn), j);
+	Vector3 dL2 = Vector3Scale(X(r2, cn), -1.0f*j);
 
-	/* Calculate friction */
-	/* TODO */
+	/* Beware: friction calculation is hard, lets do it step by step */
+	/* Calculate the relative momentum of points p1 and p2 */
+	float invr1sq = 1.0f / DOT(r1, r1);
+	float invr2sq = 1.0f / DOT(r2, r2);
+	Vector3 p_r1 = Vector3Add(b1->p, Vector3Scale(X(b1->L, r1), invr1sq));
+	Vector3 p_r2 = Vector3Add(b2->p, Vector3Scale(X(b2->L, r2), invr2sq));
+	Vector3 p_12 = Vector3Subtract(p_r2, p_r1);
+	/* Decompose p_12 based on normal and tangent components:
+	 * By definition p_12n + p_12t = p_12; So we calculate the
+	 * projection along the normal (p_12n) and subtract it from
+	 * the total vector p_12 to find the tangent p_12t.
+	 * As a bonus we get the tangent vector tg by normalizing p_12t.
+	 */
+	Vector3 p_12n = Vector3Scale(cn, DOT(p_12, cn));
+	Vector3 p_12t = Vector3Subtract(p_12, p_12n);
+	Vector3 tg = Vector3Normalize(p_12t);
+
+	/* calculate static and dynamic friction impulses */
+	float p_12tmag = Vector3Length(p_12t);
+	float jf_s = fabsf(j * uf_s);
+	Vector3 jf_d = Vector3Scale(tg, j*uf_d);
+
+	Vector3 jf2 = jf_s >= p_12tmag ? p_12t : jf_d;
+	Vector3 jf1 = NEG(jf2);
+
+	dL1 = Vector3Add(dL1, X(r1, jf1));
+	dL2 = Vector3Add(dL2, X(r2, jf2));
 
 	/* adjust positions to eliminate penetration */
+	float minv = b1->Minv + b2->Minv;
 	Vector3 ds1 = Vector3Scale(cn, depth*b1->Minv / minv);
 	Vector3 ds2 = Vector3Scale(cn, depth*b2->Minv / minv);
 	b1->pos = Vector3Subtract(b1->pos, ds1);
 	b2->pos = Vector3Add(b2->pos, ds2);
 
 	/* Update bodies' properties */
-	b1->p = Vector3Subtract(b1->p, dp);
-	b1->L = Vector3Subtract(b1->L, dL1);
-	b2->p = Vector3Add(b2->p, dp);
+	b1->p = Vector3Add(b1->p, dp1);
+	b1->L = Vector3Add(b1->L, dL1);
+	b2->p = Vector3Add(b2->p, dp2);
 	b2->L = Vector3Add(b2->L, dL2);
+
+
 }
+
+#undef NEG
+#undef DOT
+#undef X

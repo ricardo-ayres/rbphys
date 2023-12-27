@@ -23,32 +23,32 @@ int main()
 	rbp_body planet;
 	planet.Minv = 1.0f;
 	planet.Ibinv = MatrixIdentity();
-	planet.pos = (Vector3) {10.0f, 0.0f, 8.0f};
+	planet.pos = (Vector3) {5.6f, 0.0f, 4.5f};
 	planet.p = Vector3Zero();
 	planet.dir = QuaternionIdentity();
-	planet.L = (Vector3) {0.0f, 20.0f, 0.0f};
+	planet.L = (Vector3) {0.0f, 0.0f, 0.0f};
 	rbp_collider_sphere planet_collider ={
 		SPHERE,
 		{0.0f, 0.0f, 0.0f},
 		0.99f,
+		0.5f,
 		0.3f,
-		0.2f,
 		1.0f};
 	planet.collider = &planet_collider;
 
 	rbp_body sun;
 	sun.Minv = 0.1f;
-	sun.Ibinv = MatrixScale(0.1f, 0.1f, 0.1f);
+	sun.Ibinv = MatrixScale(0.01f, 0.01f, 0.01f);
 	sun.pos = Vector3Zero();
 	sun.p = Vector3Zero();
 	sun.dir = QuaternionIdentity();
-	sun.L = (Vector3) {0.0f, 1.0f, 0.0f};
+	sun.L = (Vector3) {0.0f, 0.0f, 0.0f};
 	rbp_collider_cuboid sun_collider = {
 		CUBOID,
 		{0.0f,0.0f,0.0f},
 		0.99f,
+		0.5f,
 		0.3f,
-		0.2f,
 		QuaternionIdentity(),
 		10.0f,
 		10.0f,

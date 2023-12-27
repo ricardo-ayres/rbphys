@@ -30,15 +30,15 @@ int main()
 	rbp_collider_sphere planet_collider = {
 		SPHERE,
 		{0.0f, 0.0f, 0.0f},
-		0.99f,
-		0.10f,
-		0.08f,
+		0.70f,
+		0.60f,
+		0.30f,
 		1.0f};
 	planet.collider = &planet_collider;
 
 	rbp_body sun;
 	sun.Minv = 0.1f;
-	sun.Ibinv = MatrixIdentity();
+	sun.Ibinv = MatrixScale(0.1f, 0.1f, 0.1f);
 	sun.pos = Vector3Zero();
 	sun.p = (Vector3) {0.0f, -2.0f, -6.7f};
 	sun.dir = QuaternionIdentity();
@@ -46,9 +46,9 @@ int main()
 	rbp_collider_sphere sun_collider = {
 		SPHERE,
 		{0.0f, 0.0f, 0.0f}, 
-		0.99f, 
-		0.10f, 
-		0.08f, 
+		0.70f, 
+		0.60f, 
+		0.30f, 
 		5.0f};
 	sun.collider = &sun_collider;
 
@@ -108,6 +108,7 @@ int main()
 
 		/* Update model and camera */
 		planet_model.transform = QuaternionToMatrix(planet.dir);
+		sun_model.transform = QuaternionToMatrix(sun.dir);
 		UpdateCamera(&camera, CAMERA_FREE);
 
 		/* Render scene */
