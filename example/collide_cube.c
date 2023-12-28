@@ -30,8 +30,8 @@ int main()
 	rbp_collider_sphere planet_collider ={
 		SPHERE,
 		{0.0f, 0.0f, 0.0f},
-		0.99f,
-		0.5f,
+		0.90f,
+		0.4f,
 		0.3f,
 		1.0f};
 	planet.collider = &planet_collider;
@@ -46,8 +46,8 @@ int main()
 	rbp_collider_cuboid sun_collider = {
 		CUBOID,
 		{0.0f,0.0f,0.0f},
-		0.99f,
-		0.5f,
+		0.90f,
+		0.4f,
 		0.3f,
 		QuaternionIdentity(),
 		10.0f,

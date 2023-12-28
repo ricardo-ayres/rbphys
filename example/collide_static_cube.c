@@ -8,7 +8,7 @@ int main()
 {
 	InitWindow(640, 480, "rbphys");
 
-	SetTargetFPS(60.0);
+	SetTargetFPS(120.0);
 	float dt = 1.0 / 60.0;
 
 	Image checked = GenImageChecked(2, 2, 1, 1, RED, GREEN);
@@ -16,44 +16,48 @@ int main()
 	UnloadImage(checked);
 
 	Model planet_model = LoadModelFromMesh(GenMeshSphere(1.0f, 16, 16));
-	Model sun_model = LoadModelFromMesh(GenMeshSphere(5.0f, 16, 16));
+	Model sun_model = LoadModelFromMesh(GenMeshCube(50.0f, 2.0f, 50.0f));
 	planet_model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
 	sun_model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
 
 	rbp_body planet;
-	planet.Minv = 10.0f;
+	planet.Minv = 1.0f;
 	planet.Ibinv = MatrixIdentity();
-	planet.pos = (Vector3) {10.0f, 0.0f, 1.0f};
-	planet.p = (Vector3) {0.0f, 0.0f, 0.5f};
+	planet.pos = (Vector3) {0.0f, 5.0f, 0.0f};
+	planet.p = Vector3Zero();
 	planet.dir = QuaternionIdentity();
-	planet.L = (Vector3) {0.0f, 0.0f, 0.0f};
-	rbp_collider_sphere planet_collider = {
+	planet.L = (Vector3) {3.0f, 0.0f, 0.0f};
+	rbp_collider_sphere planet_collider ={
 		SPHERE,
 		{0.0f, 0.0f, 0.0f},
 		0.90f,
-		0.70f,
-		0.20f,
+		0.3f,
+		0.2f,
 		1.0f};
 	planet.collider = &planet_collider;
 
 	rbp_body sun;
-	sun.Minv = 0.1f;
-	sun.Ibinv = MatrixScale(0.1f, 0.1f, 0.1f);
-	sun.pos = Vector3Zero();
-	sun.p = (Vector3) {0.0f, 0.0f, 0.5f};
+	sun.Minv = 0.0f;
+	sun.Ibinv = MatrixScale(0.00f, 0.00f, 0.00f);
+	sun.Ibinv.m15 = 1.0f;
+	sun.pos = (Vector3) {0.0f, -1.0f, 0.0f};
+	sun.p = Vector3Zero();
 	sun.dir = QuaternionIdentity();
-	sun.L = Vector3Zero();
-	rbp_collider_sphere sun_collider = {
-		SPHERE,
-		{0.0f, 0.0f, 0.0f}, 
-		0.90f, 
-		0.70f, 
-		0.20f, 
-		5.0f};
+	sun.L = (Vector3) {0.0f, 0.0f, 0.0f};
+	rbp_collider_cuboid sun_collider = {
+		CUBOID,
+		{0.0f,0.0f,0.0f},
+		0.90f,
+		0.3f,
+		0.2f,
+		QuaternionIdentity(),
+		50.0f,
+		2.0f,
+		50.0f};
 	sun.collider = &sun_collider;
 
 	Camera3D camera = { 0 };
-	camera.position = (Vector3) {-35.0f, 20.0f, -35.0f};
+	camera.position = (Vector3) {50.0f, 40.0f, 0.0f};
 	camera.target = Vector3Zero();
 	camera.up = (Vector3) {0.0f, 1.0f, 0.0f};
 	camera.fovy = 45.0f;
@@ -74,6 +78,7 @@ int main()
 	Vector3 trj[trj_max];
 	trj[0] = planet.pos;
 
+	Vector3 g = (Vector3) {0.0f, -10.0f/planet.Minv, 0.0f};
 	rbp_contact contact;
 	while(!WindowShouldClose()) {
 		/* Update physics */
@@ -82,18 +87,11 @@ int main()
 		time = now;
 
 		while (time_pool >= dt) {
-			Vector3 relpos = Vector3Subtract(planet.pos, sun.pos);
-			float r2 = Vector3DotProduct(relpos, relpos);
-			Vector3 g = Vector3Normalize(relpos);
-			g = Vector3Scale(g, -160.0f/r2);
 			rbp_wspace_force(&planet, g, planet.pos, dt);
-			rbp_wspace_force(&sun, Vector3Scale(g, -1.0f), sun.pos, dt);
-
 			rbp_update(&planet, dt);
-			rbp_update(&sun, dt);
 			time_pool -= dt;
 
-			/* collide! */
+			/* Check collisions, reset planet if hit */
 			if (rbp_collide(&planet, &sun, &contact)) {
 				rbp_resolve_collision(&contact, dt);
 			}

@@ -5,3 +5,4 @@ orbit
 heightmap
 collide_sphere
 collide_cube
+collide_static_cube
