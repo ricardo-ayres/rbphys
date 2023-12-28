@@ -33,6 +33,7 @@ int main()
 		0.90f,
 		0.4f,
 		0.3f,
+		0.999f,
 		1.0f};
 	planet.collider = &planet_collider;
 
@@ -49,6 +50,7 @@ int main()
 		0.90f,
 		0.4f,
 		0.3f,
+		0.999f,
 		QuaternionIdentity(),
 		10.0f,
 		10.0f,
@@ -88,7 +90,7 @@ int main()
 			Vector3 relpos = Vector3Subtract(planet.pos, sun.pos);
 			float r2 = Vector3DotProduct(relpos, relpos);
 			Vector3 g = Vector3Normalize(relpos);
-			g = Vector3Scale(g, -160.0f/r2);
+			g = Vector3Scale(g, -320.0f/r2);
 			rbp_wspace_force(&planet, g, planet.pos, dt);
 			rbp_wspace_force(&sun, Vector3Scale(g, -1.0f), sun.pos, dt);
 			rbp_update(&planet, dt);

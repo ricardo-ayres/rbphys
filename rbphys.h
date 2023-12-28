@@ -47,6 +47,7 @@ typedef enum {
  * e = partial coefficient of restitution;
  * uf_s = coefficient of friction (static);
  * uf_d = coefficient of friction (dynamic);
+ * df = damping factor for collisions with friction;
  */
 typedef struct rbp_collider {
 #define \
@@ -55,7 +56,8 @@ typedef struct rbp_collider {
 	Vector3 offset; \
 	float e; \
 	float uf_s; \
-	float uf_d;
+	float uf_d; \
+	float df;
 
 	RBP_COLLIDER_PROPS
 } rbp_collider;
@@ -120,6 +122,8 @@ typedef struct rbp_contact {
 	 * e = coefficient of restitution of the collision
 	 * uf_s = coefficient of friction (static)
 	 * uf_d = coefficient of friction (dynamic)
+	 * df1 = damping factor for friction collisions, b1
+	 * df2 = damping factor for friction collisions, b2
 	 */
 	rbp_body *b1;
 	rbp_body *b2;
@@ -130,6 +134,8 @@ typedef struct rbp_contact {
 	float e;
 	float uf_s;
 	float uf_d;
+	float df1;
+	float df2;
 } rbp_contact;
 
 /* Additional math functions */
@@ -274,6 +280,8 @@ rbp_collide_sphere_sphere(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 		c->e= c1->e * c2->e;
 		c->uf_s = c1->uf_s + c2->uf_s;
 		c->uf_d = c1->uf_d + c2->uf_d;
+		c->df1 = c1->df;
+		c->df2 = c2->df;
 		return 1;
 	}
 	/* Miss, return 0, don't touch c. */
@@ -311,6 +319,8 @@ rbp_collide_sphere_cuboid(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 		 * cuboid (b2) to the sphere (b1) */
 		c->b1 = b2;
 		c->b2 = b1;
+		c->df1 = c2->df; /* swap df's!, see above */
+		c->df2 = c1->df;
 		c->e = c1->e * c2->e;
 		c->uf_s = c1->uf_s + c2->uf_s;
 		c->uf_d = c1->uf_d + c2->uf_d;
@@ -370,8 +380,10 @@ rbp_collide(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 	rbp_body *b;
 	int (*collide)(rbp_body*, rbp_body*, rbp_contact*);
 
-	rbp_collider_type a_type = ((rbp_collider *) b1->collider)->collider_type;
-	rbp_collider_type b_type = ((rbp_collider *) b2->collider)->collider_type;
+	rbp_collider *ca = (rbp_collider *) b1->collider;
+	rbp_collider *cb = (rbp_collider *) b2->collider;
+	rbp_collider_type a_type = ca->collider_type;
+	rbp_collider_type b_type = cb->collider_type;
 
 	/* Ensure smallest collider_type goes in as b1 */
 	a = b1;
@@ -384,6 +396,7 @@ rbp_collide(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 		a_type = b_type;
 		b_type = tmp;
 	}
+
 	switch (a_type) {
 	case SPHERE:
 		switch (b_type) {
@@ -434,66 +447,83 @@ rbp_resolve_collision(rbp_contact *c, float dt)
 	float e = c->e;
 	float uf_s = c->uf_s;
 	float uf_d = c->uf_d;
+	float df1 = c->df1;
+	float df2 = c->df2;
 
-	/* Calculate jr */
+	/* Calculate vr */
 	Vector3 r1 = Vector3Subtract(p1, b1->pos);
 	Vector3 r2 = Vector3Subtract(p2, b2->pos);
 	Vector3 vp1 = Vector3Add(rbp_v(b1), X(rbp_w(b1), r1));
 	Vector3 vp2 = Vector3Add(rbp_v(b2), X(rbp_w(b2), r2));
 	Vector3 vr = Vector3Subtract(vp2, vp1);
 
+	/* Calculate jr */
 	float minv = b1->Minv + b2->Minv;
 	Vector3 vr_rot1 = MatrixVector3Multiply(b1->Ibinv, X(X(r1, cn),r1)); 
 	Vector3 vr_rot2 = MatrixVector3Multiply(b2->Ibinv, X(X(r2, cn),r2));
 	Vector3 vr_rot = Vector3Add(vr_rot1, vr_rot2);
-
 	float jr_bot = minv + DOT(vr_rot, cn);
 	float jr_top = DOT(Vector3Scale(vr, -(1.0f+e)), cn);
-
 	float jr = jr_top / jr_bot;
 
+	/* Calculate impulses */
 	Vector3 dp1 = Vector3Scale(cn, -1.0f*jr);
 	Vector3 dp2 = Vector3Scale(cn, +1.0f*jr);
 	Vector3 dL1 = Vector3Scale(X(r1, cn), -1.0f*jr);
 	Vector3 dL2 = Vector3Scale(X(r2, cn), +1.0f*jr);
 
-	/* Beware: friction calculation is hard, lets do it step by step */
-	float vrn = DOT(vr, cn);
-	Vector3 tg = Vector3Subtract(vr, Vector3Scale(cn, vrn)); 
-	tg = vrn == 0 ? Vector3Zero() : Vector3Normalize(tg);
+	/* Calculate friction impulses */
+	Vector3 vn = Vector3Scale(cn, DOT(vr, cn));
+	Vector3 vt = Vector3Subtract(vr, vn);
+	Vector3 tg;
 
-	float js = uf_s * jr;
-	float jd = uf_d * jr;
-	float mtot = rbp_m(b1) + rbp_m(b2);
-	float pr = DOT(Vector3Scale(vr, mtot), tg);
-
-	Vector3 jf1;
-	if(pr <= js) {
-		printf("static,\tjr = %.4f\tpr = %.4f\n", jr, pr);
-		jf1 = Vector3Scale(tg, pr);
+	static const float tolerance = 0.01f;
+	if (Vector3Length(vt) < tolerance) {
+		tg = Vector3Zero();
 	} else {
-		printf("dynamic,\tjr = %.4f\tpr = %.4f\n", jr, pr);
-		jf1 = Vector3Scale(tg, jd);
+		tg = Vector3Normalize(vt);
+
+		float js = uf_s * jr;
+		float jd = uf_d * jr;
+		/*
+		float mtot = rbp_m(b1) + rbp_m(b2);
+		float pr = DOT(Vector3Scale(vr, mtot), tg);
+		*/
+		float pr = DOT(Vector3Scale(vr, 1.0f/minv), tg);
+
+		Vector3 jf1;
+		if(pr <= js) {
+			jf1 = Vector3Scale(tg, pr);
+		} else {
+			jf1 = Vector3Scale(tg, jd);
+		}
+
+		Vector3 jf2 = NEG(jf1);
+		/* Apply friction impulses */
+		b1->p = Vector3Add(b1->p, jf1);
+		b1->L = Vector3Add(b1->L, X(r1, jf1));
+		b2->p = Vector3Add(b2->p, jf2);
+		b2->L = Vector3Add(b2->L, X(r2, jf2));
+
+		/* Apply damping impulses */
+		b1->p = Vector3Scale(b1->p, df1);
+		b1->L = Vector3Scale(b1->L, df1);
+		b2->p = Vector3Scale(b2->p, df2);
+		b2->L = Vector3Scale(b2->L, df2);
 	}
-
-	Vector3 jf2 = NEG(jf1);
-
-	dp1 = Vector3Add(dp1, jf1);
-	dp2 = Vector3Add(dp2, jf2);
-	dL1 = Vector3Add(dL1, X(r1, jf1));
-	dL2 = Vector3Add(dL2, X(r2, jf2));
-
-	/* adjust positions to eliminate penetration */
-	Vector3 ds1 = Vector3Scale(cn, depth*b1->Minv / minv);
-	Vector3 ds2 = Vector3Scale(cn, depth*b2->Minv / minv);
-	b1->pos = Vector3Subtract(b1->pos, ds1);
-	b2->pos = Vector3Add(b2->pos, ds2);
 	
-	/* Update bodies' properties */
+
+	/* Apply collision impulses */
 	b1->p = Vector3Add(b1->p, dp1);
 	b1->L = Vector3Add(b1->L, dL1);
 	b2->p = Vector3Add(b2->p, dp2);
 	b2->L = Vector3Add(b2->L, dL2);
+
+	/* Adjust positions to eliminate penetration */
+	Vector3 ds1 = Vector3Scale(cn, depth*b1->Minv / minv);
+	Vector3 ds2 = Vector3Scale(cn, depth*b2->Minv / minv);
+	b1->pos = Vector3Subtract(b1->pos, ds1);
+	b2->pos = Vector3Add(b2->pos, ds2);
 }
 
 #undef NEG

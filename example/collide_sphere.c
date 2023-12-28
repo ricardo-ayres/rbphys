@@ -22,7 +22,7 @@ int main()
 
 	rbp_body planet;
 	planet.Minv = 10.0f;
-	planet.Ibinv = MatrixIdentity();
+	planet.Ibinv = MatrixScale(10.0f, 10.0f, 10.0f);
 	planet.pos = (Vector3) {10.0f, 0.0f, 1.0f};
 	planet.p = (Vector3) {0.0f, 0.0f, 0.5f};
 	planet.dir = QuaternionIdentity();
@@ -30,9 +30,10 @@ int main()
 	rbp_collider_sphere planet_collider = {
 		SPHERE,
 		{0.0f, 0.0f, 0.0f},
-		0.90f,
-		0.70f,
+		0.80f,
+		0.30f,
 		0.20f,
+		1.0f,
 		1.0f};
 	planet.collider = &planet_collider;
 
@@ -40,20 +41,21 @@ int main()
 	sun.Minv = 0.1f;
 	sun.Ibinv = MatrixScale(0.1f, 0.1f, 0.1f);
 	sun.pos = Vector3Zero();
-	sun.p = (Vector3) {0.0f, 0.0f, 0.5f};
+	sun.p = (Vector3) {0.0f, 0.0f, -0.5f};
 	sun.dir = QuaternionIdentity();
 	sun.L = Vector3Zero();
 	rbp_collider_sphere sun_collider = {
 		SPHERE,
 		{0.0f, 0.0f, 0.0f}, 
-		0.90f, 
-		0.70f, 
+		0.80f, 
+		0.30f, 
 		0.20f, 
+		1.0f,
 		5.0f};
 	sun.collider = &sun_collider;
 
 	Camera3D camera = { 0 };
-	camera.position = (Vector3) {-35.0f, 20.0f, -35.0f};
+	camera.position = (Vector3) {-2.0f, 30.0f, -2.0f};
 	camera.target = Vector3Zero();
 	camera.up = (Vector3) {0.0f, 1.0f, 0.0f};
 	camera.fovy = 45.0f;
@@ -94,7 +96,7 @@ int main()
 			time_pool -= dt;
 
 			/* collide! */
-			if (rbp_collide(&planet, &sun, &contact)) {
+			if (rbp_collide(&sun, &planet, &contact)) {
 				rbp_resolve_collision(&contact, dt);
 			}
 		}

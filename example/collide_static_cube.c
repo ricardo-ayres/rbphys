@@ -23,16 +23,17 @@ int main()
 	rbp_body planet;
 	planet.Minv = 1.0f;
 	planet.Ibinv = MatrixIdentity();
-	planet.pos = (Vector3) {0.0f, 5.0f, 0.0f};
-	planet.p = Vector3Zero();
+	planet.pos = (Vector3) {0.0f, 1.0f, -9.0f};
+	planet.p = (Vector3) {0.0f, 0.0f, 15.5f};
 	planet.dir = QuaternionIdentity();
-	planet.L = (Vector3) {3.0f, 0.0f, 0.0f};
+	planet.L = (Vector3) {-16.0f, 0.0f, 0.0f};
 	rbp_collider_sphere planet_collider ={
 		SPHERE,
 		{0.0f, 0.0f, 0.0f},
 		0.90f,
+		0.5f,
 		0.3f,
-		0.2f,
+		1.0f,
 		1.0f};
 	planet.collider = &planet_collider;
 
@@ -48,8 +49,9 @@ int main()
 		CUBOID,
 		{0.0f,0.0f,0.0f},
 		0.90f,
+		0.5f,
 		0.3f,
-		0.2f,
+		0.99f,
 		QuaternionIdentity(),
 		50.0f,
 		2.0f,
@@ -87,14 +89,18 @@ int main()
 		time = now;
 
 		while (time_pool >= dt) {
-			rbp_wspace_force(&planet, g, planet.pos, dt);
+			/* Update positions */
 			rbp_update(&planet, dt);
+			//rbp_update(&sun, dt);
 			time_pool -= dt;
 
 			/* Check collisions, reset planet if hit */
 			if (rbp_collide(&planet, &sun, &contact)) {
 				rbp_resolve_collision(&contact, dt);
 			}
+
+			/* Apply forces */
+			rbp_wspace_force(&planet, g, planet.pos, dt);
 		}
 
 		/* Update trajectory trace */
