@@ -21,8 +21,8 @@ int main()
 	sun_model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
 
 	rbp_body planet;
-	planet.Minv = 10.0f;
-	planet.Ibinv = MatrixScale(10.0f, 10.0f, 10.0f);
+	planet.m = 0.1f;
+	planet.Ib = MatrixScale(0.1f, 0.1f, 0.1f);
 	planet.pos = (Vector3) {10.0f, 0.0f, 1.0f};
 	planet.p = (Vector3) {0.0f, 0.0f, 0.5f};
 	planet.dir = QuaternionIdentity();
@@ -30,16 +30,17 @@ int main()
 	rbp_collider_sphere planet_collider = {
 		SPHERE,
 		{0.0f, 0.0f, 0.0f},
-		0.80f,
-		0.30f,
+		0.99f,
 		0.20f,
-		1.0f,
+		0.10f,
+		1.00f,
 		1.0f};
 	planet.collider = &planet_collider;
+	rbp_calculate_properties(&planet);
 
 	rbp_body sun;
-	sun.Minv = 0.1f;
-	sun.Ibinv = MatrixScale(0.1f, 0.1f, 0.1f);
+	sun.m = 10.0f;
+	sun.Ib = MatrixScale(10.0f, 10.0f, 10.0f);
 	sun.pos = Vector3Zero();
 	sun.p = (Vector3) {0.0f, 0.0f, -0.5f};
 	sun.dir = QuaternionIdentity();
@@ -47,12 +48,13 @@ int main()
 	rbp_collider_sphere sun_collider = {
 		SPHERE,
 		{0.0f, 0.0f, 0.0f}, 
-		0.80f, 
-		0.30f, 
+		0.99f, 
 		0.20f, 
-		1.0f,
+		0.10f, 
+		1.00f,
 		5.0f};
 	sun.collider = &sun_collider;
+	rbp_calculate_properties(&sun);
 
 	Camera3D camera = { 0 };
 	camera.position = (Vector3) {-2.0f, 30.0f, -2.0f};
@@ -96,7 +98,7 @@ int main()
 			time_pool -= dt;
 
 			/* collide! */
-			if (rbp_collide(&sun, &planet, &contact)) {
+			if (rbp_collide(&planet, &sun, &contact)) {
 				rbp_resolve_collision(&contact, dt);
 			}
 		}

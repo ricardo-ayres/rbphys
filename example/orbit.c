@@ -21,7 +21,7 @@ int main()
 	sun_model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
 
 	rbp_body sphere;
-	sphere.Minv = 1.0f;
+	sphere.minv = 1.0f;
 	sphere.Ibinv = MatrixIdentity();
 	sphere.pos = (Vector3) {12.0f, 0.0f, 0.0f};
 	sphere.p = (Vector3) {0.0f, 2.0f, 13.2f};

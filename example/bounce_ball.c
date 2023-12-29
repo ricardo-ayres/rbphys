@@ -21,7 +21,7 @@ int main()
 	slab_model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
 
 	rbp_body ball;
-	ball.Minv = 1.0f;
+	ball.minv = 1.0f;
 	ball.Ibinv = MatrixIdentity();
 	ball.pos = (Vector3) {5.0f, 5.0f, 0.0f};
 	ball.p = (Vector3) {-50.0f, -50.0f, 0.0f};
@@ -37,7 +37,7 @@ int main()
 	ball.collider = &ball_collider;
 
 	rbp_body tabletop;
-	tabletop.Minv = 0.0f;
+	tabletop.minv = 0.0f;
 	tabletop.Ibinv = MatrixScale(0.00f, 0.00f, 0.00f);
 	tabletop.Ibinv.m15 = 1.0f;
 	tabletop.pos = (Vector3) {0.0f, 10.0f, 0.0f};
@@ -57,7 +57,7 @@ int main()
 	tabletop.collider = &tabletop_collider;
 
 	rbp_body floor;
-	floor.Minv = 0.0f;
+	floor.minv = 0.0f;
 	floor.Ibinv = MatrixScale(0.00f, 0.00f, 0.00f);
 	floor.Ibinv.m15 = 1.0f;
 	floor.pos = (Vector3) {0.0f, -1.0f, 0.0f};
@@ -98,7 +98,7 @@ int main()
 	Vector3 trj[trj_max];
 	trj[0] = ball.pos;
 
-	Vector3 g = (Vector3) {0.0f, -10.0f/ball.Minv, 0.0f};
+	Vector3 g = (Vector3) {0.0f, -10.0f/ball.minv, 0.0f};
 	rbp_contact contact;
 	while(!WindowShouldClose()) {
 		/* Update physics */

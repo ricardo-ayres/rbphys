@@ -19,7 +19,7 @@ int main()
 	cube_model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
 
 	rbp_body cube;
-	cube.Minv = 1.0f;
+	cube.minv = 1.0f;
 	cube.Ibinv = MatrixIdentity();
 	cube.pos = (Vector3) {0.0f, 0.0f, 0.0f};
 	cube.p = (Vector3) {0.0f, 0.0f, 0.0f};

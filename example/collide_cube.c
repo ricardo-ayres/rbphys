@@ -21,8 +21,8 @@ int main()
 	sun_model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
 
 	rbp_body planet;
-	planet.Minv = 1.0f;
-	planet.Ibinv = MatrixIdentity();
+	planet.m = 1.0f;
+	planet.Ib = MatrixIdentity();
 	planet.pos = (Vector3) {5.6f, 0.0f, 4.5f};
 	planet.p = Vector3Zero();
 	planet.dir = QuaternionIdentity();
@@ -36,10 +36,11 @@ int main()
 		0.999f,
 		1.0f};
 	planet.collider = &planet_collider;
+	rbp_calculate_properties(&planet);
 
 	rbp_body sun;
-	sun.Minv = 0.1f;
-	sun.Ibinv = MatrixScale(0.01f, 0.01f, 0.01f);
+	sun.m = 10.0f;
+	sun.Ib = MatrixScale(100.0f, 100.0f, 100.0f);
 	sun.pos = Vector3Zero();
 	sun.p = Vector3Zero();
 	sun.dir = QuaternionIdentity();
@@ -56,6 +57,7 @@ int main()
 		10.0f,
 		10.0f};
 	sun.collider = &sun_collider;
+	rbp_calculate_properties(&sun);
 
 	Camera3D camera = { 0 };
 	camera.position = (Vector3) {50.0f, 40.0f, 0.0f};
