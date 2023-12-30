@@ -11,7 +11,7 @@ int main()
 	SetTargetFPS(60.0);
 	float dt = 1.0 / 60.0;
 
-	Image checked = GenImageChecked(2, 2, 1, 1, RED, GREEN);
+	Image checked = GenImageChecked(2, 2, 1, 1, GRAY, WHITE);
 	Texture2D texture = LoadTextureFromImage(checked);
 	UnloadImage(checked);
 
@@ -23,7 +23,7 @@ int main()
 	rbp_body planet;
 	planet.m = 0.1f;
 	planet.Ib = MatrixScale(0.1f, 0.1f, 0.1f);
-	planet.pos = (Vector3) {10.0f, 0.0f, 1.0f};
+	planet.pos = (Vector3) {10.0f, 0.0f, -9.0f};
 	planet.p = (Vector3) {0.0f, 0.0f, 0.5f};
 	planet.dir = QuaternionIdentity();
 	planet.L = (Vector3) {0.0f, 0.0f, 0.0f};
@@ -41,7 +41,7 @@ int main()
 	rbp_body sun;
 	sun.m = 10.0f;
 	sun.Ib = MatrixScale(10.0f, 10.0f, 10.0f);
-	sun.pos = Vector3Zero();
+	sun.pos = (Vector3) {0.0f, 0.0f, -10.0f};
 	sun.p = (Vector3) {0.0f, 0.0f, -0.5f};
 	sun.dir = QuaternionIdentity();
 	sun.L = Vector3Zero();
@@ -56,8 +56,34 @@ int main()
 	sun.collider = &sun_collider;
 	rbp_calculate_properties(&sun);
 
+	Vector3 offset = (Vector3) {0.0f, 0.0f, 20.0f};
+	rbp_body planet2 = planet;
+	planet2.pos = Vector3Add(planet2.pos, offset);
+	rbp_collider_sphere planet2_collider = planet_collider;
+	planet2.collider = &planet2_collider;
+
+	rbp_body sun2 = sun;
+	sun2.pos = Vector3Add(sun2.pos, offset);
+	rbp_collider_sphere sun2_collider = sun_collider;
+	sun2.collider = &sun2_collider;
+
+	int trj1_max = 4096;
+	unsigned int trj1_counter = 0;
+	unsigned int trj1_len = 0;
+	Vector3 trj1[trj1_max];
+	trj1[0] = planet.pos;
+
+	int trj2_max = 4096;
+	unsigned int trj2_counter = 0;
+	unsigned int trj2_len = 0;
+	Vector3 trj2[trj2_max];
+	trj2[0] = planet2.pos;
+
+	rbp_contact contact1;
+	rbp_contact contact2;
+
 	Camera3D camera = { 0 };
-	camera.position = (Vector3) {-2.0f, 30.0f, -2.0f};
+	camera.position = (Vector3) {-20.0f, 50.0f, 0.0f};
 	camera.target = Vector3Zero();
 	camera.up = (Vector3) {0.0f, 1.0f, 0.0f};
 	camera.fovy = 45.0f;
@@ -67,18 +93,6 @@ int main()
 	double time = GetTime();
 	float time_pool = 0.0f;
 
-	struct trajectory {
-		Vector3 *p;
-		struct trajectory *next;
-	};
-
-	int trj_max = 4096;
-	unsigned int trj_counter = 0;
-	unsigned int trj_len = 0;
-	Vector3 trj[trj_max];
-	trj[0] = planet.pos;
-
-	rbp_contact contact;
 	while(!WindowShouldClose()) {
 		/* Update physics */
 		now = GetTime();
@@ -86,44 +100,74 @@ int main()
 		time = now;
 
 		while (time_pool >= dt) {
-			Vector3 relpos = Vector3Subtract(planet.pos, sun.pos);
-			float r2 = Vector3DotProduct(relpos, relpos);
-			Vector3 g = Vector3Normalize(relpos);
-			g = Vector3Scale(g, -160.0f/r2);
-			rbp_wspace_force(&planet, g, planet.pos, dt);
-			rbp_wspace_force(&sun, Vector3Scale(g, -1.0f), sun.pos, dt);
+			Vector3 relpos1 = Vector3Subtract(planet.pos, sun.pos);
+			Vector3 relpos2 = Vector3Subtract(planet2.pos, sun2.pos);
+			float r21 = Vector3DotProduct(relpos1, relpos1);
+			float r22 = Vector3DotProduct(relpos2, relpos2);
+			Vector3 g1 = Vector3Normalize(relpos1);
+			Vector3 g2 = Vector3Normalize(relpos2);
+			g1 = Vector3Scale(g1, -160.0f/r21);
+			g2 = Vector3Scale(g2, -160.0f/r22);
+
+			rbp_wspace_force(&planet, g1, planet.pos, dt);
+			rbp_wspace_force(&sun, Vector3Scale(g1, -1.0f), sun.pos, dt);
+
+			rbp_wspace_force(&planet2, g2, planet2.pos, dt);
+			rbp_wspace_force(&sun2, Vector3Scale(g2, -1.0f), sun2.pos, dt);
 
 			rbp_update(&planet, dt);
+			rbp_update(&planet2, dt);
 			rbp_update(&sun, dt);
+			rbp_update(&sun2, dt);
 			time_pool -= dt;
 
 			/* collide! */
-			if (rbp_collide(&planet, &sun, &contact)) {
-				rbp_resolve_collision(&contact, dt);
+			if (rbp_collide(&planet, &sun, &contact1)) {
+				rbp_resolve_collision(&contact1, dt);
+			}
+
+			if (rbp_collide(&sun2, &planet2, &contact2)) {
+				rbp_resolve_collision(&contact2, dt);
 			}
 		}
 
 		/* Update trajectory trace */
-		trj_counter = (trj_counter + 1) % trj_max;
-		trj[trj_counter] = planet.pos;
-		trj_len = trj_len < trj_max ? trj_len+1 : trj_max;
+		trj1_counter = (trj1_counter + 1) % trj1_max;
+		trj1[trj1_counter] = planet.pos;
+		trj1_len = trj1_len < trj1_max ? trj1_len+1 : trj1_max;
+
+		trj2_counter = (trj2_counter + 1) % trj2_max;
+		trj2[trj2_counter] = planet2.pos;
+		trj2_len = trj2_len < trj2_max ? trj2_len+1 : trj2_max;
 
 		/* Update model and camera */
-		planet_model.transform = QuaternionToMatrix(planet.dir);
-		sun_model.transform = QuaternionToMatrix(sun.dir);
 		UpdateCamera(&camera, CAMERA_FREE);
 
 		/* Render scene */
 		BeginDrawing();
 		ClearBackground(RAYWHITE);
 			BeginMode3D(camera);
-				DrawGrid(1000.0, 1.0f);
-				for (int i=0; i<trj_len-1; i++) {
-					if (i != trj_counter)
-						DrawLine3D(trj[i], trj[i+1], RED);
+
+				for (int i=0; i<trj1_len-1; i++) {
+					if (i != trj1_counter)
+						DrawLine3D(trj1[i], trj1[i+1], RED);
 				}
+
+				for (int i=0; i<trj2_len-1; i++) {
+					if (i != trj2_counter)
+						DrawLine3D(trj2[i], trj2[i+1], GREEN);
+				}
+
+				planet_model.transform = QuaternionToMatrix(planet.dir);
+				sun_model.transform = QuaternionToMatrix(sun.dir);
 				DrawModel(sun_model, sun.pos, 1.0f, RED);
-				DrawModel(planet_model, planet.pos, 1.0f, WHITE);
+				DrawModel(planet_model, planet.pos, 1.0f, RED);
+
+				planet_model.transform = QuaternionToMatrix(planet2.dir);
+				sun_model.transform = QuaternionToMatrix(sun2.dir);
+				DrawModel(sun_model, sun2.pos, 1.0f, GREEN);
+				DrawModel(planet_model, planet2.pos, 1.0f, GREEN);
+
 			EndMode3D();
 			DrawFPS(1,1);
 		EndDrawing();
