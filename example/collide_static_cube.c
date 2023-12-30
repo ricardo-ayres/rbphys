@@ -15,19 +15,19 @@ int main()
 	Texture2D texture = LoadTextureFromImage(checked);
 	UnloadImage(checked);
 
-	Model planet_model = LoadModelFromMesh(GenMeshSphere(1.0f, 16, 16));
-	Model sun_model = LoadModelFromMesh(GenMeshCube(50.0f, 2.0f, 50.0f));
-	planet_model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
-	sun_model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
+	Model ball_model = LoadModelFromMesh(GenMeshSphere(1.0f, 16, 16));
+	Model slab_model = LoadModelFromMesh(GenMeshCube(50.0f, 2.0f, 50.0f));
+	ball_model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
+	slab_model.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = texture;
 
-	rbp_body planet;
-	planet.m = 1.0f;
-	planet.Ib = MatrixIdentity();
-	planet.pos = (Vector3) {0.0f, 1.0f, -9.0f};
-	planet.p = (Vector3) {0.0f, 0.0f, 15.5f};
-	planet.dir = QuaternionIdentity();
-	planet.L = (Vector3) {-16.0f, 0.0f, 0.0f};
-	rbp_collider_sphere planet_collider ={
+	rbp_body ball;
+	ball.m = 1.0f;
+	ball.Ib = MatrixIdentity();
+	ball.pos = (Vector3) {0.0f, 1.0f, -9.0f};
+	ball.p = (Vector3) {0.0f, 0.0f, 15.5f};
+	ball.dir = QuaternionIdentity();
+	ball.L = (Vector3) {-16.0f, 0.0f, 0.0f};
+	rbp_collider_sphere ball_collider ={
 		SPHERE,
 		{0.0f, 0.0f, 0.0f},
 		0.90f,
@@ -35,16 +35,16 @@ int main()
 		0.3f,
 		1.0f,
 		1.0f};
-	planet.collider = &planet_collider;
-	rbp_calculate_properties(&planet);
+	ball.collider = &ball_collider;
+	rbp_calculate_properties(&ball);
 
-	rbp_body sun;
-	sun.m = 0.0f; /* static body */
-	sun.pos = (Vector3) {0.0f, -1.0f, 0.0f};
-	sun.p = Vector3Zero();
-	sun.dir = QuaternionIdentity();
-	sun.L = (Vector3) {0.0f, 0.0f, 0.0f};
-	rbp_collider_cuboid sun_collider = {
+	rbp_body slab;
+	slab.m = 0.0f; /* static body */
+	slab.pos = (Vector3) {0.0f, -1.0f, 0.0f};
+	slab.p = Vector3Zero();
+	slab.dir = QuaternionIdentity();
+	slab.L = (Vector3) {0.0f, 0.0f, 0.0f};
+	rbp_collider_cuboid slab_collider = {
 		CUBOID,
 		{0.0f,0.0f,0.0f},
 		0.90f,
@@ -55,8 +55,8 @@ int main()
 		50.0f,
 		2.0f,
 		50.0f};
-	sun.collider = &sun_collider;
-	rbp_calculate_properties(&planet);
+	slab.collider = &slab_collider;
+	rbp_calculate_properties(&ball);
 
 	Camera3D camera = { 0 };
 	camera.position = (Vector3) {50.0f, 40.0f, 0.0f};
@@ -78,9 +78,9 @@ int main()
 	unsigned int trj_counter = 0;
 	unsigned int trj_len = 0;
 	Vector3 trj[trj_max];
-	trj[0] = planet.pos;
+	trj[0] = ball.pos;
 
-	Vector3 g = (Vector3) {0.0f, -10.0f/planet.minv, 0.0f};
+	Vector3 g = (Vector3) {0.0f, -10.0f/ball.minv, 0.0f};
 	rbp_contact contact;
 	while(!WindowShouldClose()) {
 		/* Update physics */
@@ -90,28 +90,28 @@ int main()
 
 		while (time_pool >= dt) {
 			/* Update positions */
-			rbp_update(&planet, dt);
-			//rbp_update(&sun, dt);
+			rbp_update(&ball, dt);
+			//rbp_update(&slab, dt);
 			time_pool -= dt;
 
-			/* Check collisions, reset planet if hit */
-			//if (rbp_collide(&sun, &planet, &contact)) {
-			if (rbp_collide(&planet, &sun, &contact)) {
+			/* Check collisions, reset ball if hit */
+			if (rbp_collide(&slab, &ball, &contact)) {
+			//if (rbp_collide(&ball, &slab, &contact)) {
 				rbp_resolve_collision(&contact, dt);
 			}
 
 			/* Apply forces */
-			rbp_wspace_force(&planet, g, planet.pos, dt);
+			rbp_wspace_force(&ball, g, ball.pos, dt);
 		}
 
 		/* Update trajectory trace */
 		trj_counter = (trj_counter + 1) % trj_max;
-		trj[trj_counter] = planet.pos;
+		trj[trj_counter] = ball.pos;
 		trj_len = trj_len < trj_max ? trj_len+1 : trj_max;
 
 		/* Update model and camera */
-		planet_model.transform = QuaternionToMatrix(planet.dir);
-		sun_model.transform = QuaternionToMatrix(sun.dir);
+		ball_model.transform = QuaternionToMatrix(ball.dir);
+		slab_model.transform = QuaternionToMatrix(slab.dir);
 		UpdateCamera(&camera, CAMERA_FREE);
 
 		/* Render scene */
@@ -123,8 +123,8 @@ int main()
 					if (i != trj_counter)
 						DrawLine3D(trj[i], trj[i+1], RED);
 				}
-				DrawModel(sun_model, sun.pos, 1.0f, RED);
-				DrawModel(planet_model, planet.pos, 1.0f, WHITE);
+				DrawModel(slab_model, slab.pos, 1.0f, RED);
+				DrawModel(ball_model, ball.pos, 1.0f, WHITE);
 			EndMode3D();
 			DrawFPS(1,1);
 		EndDrawing();

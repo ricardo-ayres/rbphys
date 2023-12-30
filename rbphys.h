@@ -286,8 +286,8 @@ rbp_collide_sphere_sphere(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 		c->b1 = b1;
 		c->b2 = b2;
 		c->depth = depth;
-		c->p1 = Vector3Add(pos1, Vector3Scale(cn, r1));
-		c->p2 = Vector3Add(pos2, Vector3Scale(cn, depth-r2));
+		c->p1 = Vector3Add(pos1, Vector3Scale(cn, +1.0f*r1));
+		c->p2 = Vector3Add(pos2, Vector3Scale(cn, -1.0f*r2));
 		c->e= c1->e * c2->e;
 		c->uf_s = c1->uf_s + c2->uf_s;
 		c->uf_d = c1->uf_d + c2->uf_d;
@@ -527,8 +527,8 @@ rbp_resolve_collision(rbp_contact *c, float dt)
 			jfmax = jd;
 		}
 
-		printf("jr: %.4f, pr: %.4f, js: %.4f, jd: %.4f, jfmax: %.4f, vt: %.4f, p1t: %.4f, p2t: %.4f\n",
-			jr, pr, js, jd, jfmax, Vector3Length(vt), p1t, p2t);
+		printf("pr: %.4f, js: %.4f, jd: %.4f, vr: (%.4f, %.4f, %.4f)\n",
+			pr, js, jd, vr.x, vr.y, vr.z);
 
 		jf1 = Vector3Scale(tg, jfmax);
 		jf2 = NEG(jf1);
