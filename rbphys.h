@@ -355,10 +355,9 @@ rbp_collide_sphere_cuboid(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 	c->uf_d = c1->uf_d + c2->uf_d;
 
 	/* Send the contact normal and points to world space */
-	/* TO BE VALIDATED */
-	c->cn = Vector3RotateByQuaternion(c->cn, unrot);
+	c->cn = Vector3RotateByQuaternion(c->cn, dir2);
 	c->cn = Vector3Normalize(c->cn);
-	c->p2 = Vector3RotateByQuaternion(c->p2, unrot);
+	c->p2 = Vector3RotateByQuaternion(c->p2, dir2);
 	c->p2 = Vector3Add(pos2, c->p2);
 	c->p1 = Vector3Add(pos1, Vector3Scale(c->cn, radius));
 
@@ -481,13 +480,15 @@ rbp_resolve_collision(rbp_contact *c, float dt)
 	Vector3 vr = Vector3Subtract(vp2, vp1);
 	Vector3 vrn = Vector3Scale(cn, DOT(vr, cn));
 	Vector3 vrt = Vector3Subtract(vr, vrn);
-	
+	Vector3 tg = Vector3Normalize(vrt);
 
 	/* As the normal vector (cn) is always in the
-	 * direction 1->2, if  DOT(vr, cn) is negative, then the bodies
-	 * are receding */
-	/* bail out if objects are receding */
-
+	 * direction 1->2, if  DOT(vr, cn) is non-negative, then the bodies
+	 * are at rest or receding */
+	if (DOT(vr, cn) >= 0) {
+		/* bail out if objects are receding */
+		return;
+	}
 
 	/* debugging
 	Vector3 vb2 = rbp_v(b2);
@@ -507,111 +508,19 @@ rbp_resolve_collision(rbp_contact *c, float dt)
 	float jr_top = DOT(Vector3Scale(vr, -(1.0f+e)), cn);
 	float jr = jr_top / jr_bot;
 
-	/* Calculate impulses */
+	/* Calculate friction */
+	/* For static friction we have to determine the impulse js required to
+	 * make vrt = 0 and see if js <= jr*uf_s. If yes, apply js in the normal
+	 * direction to both bodies. Else, check if js <= jr*uf_d and apply the
+	 * smaller value in the normal direction to both bodies */
+	float js;
+	
+
+	/* Apply impulses */
 	Vector3 dp1 = Vector3Scale(cn, -1.0f*jr);
 	Vector3 dp2 = Vector3Scale(cn, +1.0f*jr);
 	Vector3 dL1 = Vector3Scale(X(r1, cn), -1.0f*jr);
 	Vector3 dL2 = Vector3Scale(X(r2, cn), +1.0f*jr);
-
-	/* Calculate friction impulses */
-	static const float tolerance = 0.001f;
-
-	Vector3 vn = Vector3Scale(cn, DOT(vr, cn));
-	Vector3 vt = Vector3Subtract(vr, vn);
-	Vector3 tg;
-
-	if (Vector3Length(vt) < tolerance) {
-		tg = Vector3Zero();
-	} else {
-		tg = Vector3Normalize(vt);
-
-		float js = uf_s * jr;
-		float jd = uf_d * jr;
-
-		/* Select lowest non-zero mass */
-		//float m = fminf(m1, m2) != 0.0f ? fminf(m1, m2) : fmaxf(m1, m2);
-
-		/*
-		float pr = DOT(Vector3Scale(vr, mtot), tg);
-		*/
-
-		/* 
-		Calculate "relative momentum" in the direction of the tangent vector
-		based on the "total" linear momentum of a virtual particle in the
-		contact point of each body. The "total" linear momentum is calculated
-		by summing the actual linear momentum at the centre of mass with
-		this conversion of the angular momentum of the body to the linear
-		momentum of a point-mass in the position of the contact.
-
-		If this total "relative momentum" is lower than the calculated impulse
-		for static friction, apply the reversed "relative momentum" as an
-		impulse to zero the relative speed of the two contact points. Else,
-		apply the calculated impulse for dynamic friction.
-
-		"Conversion" from angular momentum to linear momentum:
-		L = r x p
-		p = L x r / r.r     * this is an imaginary p perpendicular to r
-		ptg = p.tg          * it should be projected onto the tangent vector
-
-		Or, in code:
-		(Vector3) p = Vector3Scale(X(L, r), 1.0f / DOT(r, r));
-		float ptg = DOT(Vector3Length(p), tg);
-		*/
-		float ptg1 = DOT(Vector3Scale(X(b1->L, r1), 1.0f / DOT(r1, r1)), tg);
-		float ptg2 = DOT(Vector3Scale(X(b2->L, r2), 2.0f / DOT(r2, r2)), tg);
-		float p1pt = DOT(b1->p, tg) + ptg1;
-		float p2pt = DOT(b2->p, tg) + ptg2;
-		float pr = fabs(p2pt - p1pt);
-
-		//float pr = DOT(Vector3Scale(vr, m), tg);
-		//float p1t = fabsf(DOT(b1->p, tg));
-		//float p2t = fabsf(DOT(b2->p, tg));
-
-		//float jfmax = fminf(p1t, p2t);
-		float jfmax;
-
-		Vector3 jf1;
-		Vector3 jf2;
-		if(pr <= js) {
-			printf(" - static - ");
-			//jfmax = fminf(pr, jfmax);
-			jfmax = pr;
-		} else {
-			printf(" - dynamic - ");
-			//jfmax = fminf(jd, jfmax);
-			jfmax = fminf(pr, jd);
-		}
-
-		jf1 = Vector3Scale(tg, jfmax);
-		jf2 = NEG(jf1);
-
-		/* debugging 
-		printf("vp1: (%.2f, %.2f, %.2f) ", vp1.x, vp1.y, vp1.z);
-		printf("vp2: (%.2f, %.2f, %.2f) ", vp2.x, vp2.y, vp2.z);
-		printf("vr: (%.2f, %.2f, %.2f) ", vr.x, vr.y, vr.z);
-		printf("vn: (%.2f, %.2f, %.2f) ", vn.x, vn.y, vn.z);
-		printf("vt: (%.2f, %.2f, %.2f) ", vt.x, vt.y, vt.z);
-		printf("tg: (%.2f, %.2f, %.2f) ", tg.x, tg.y, tg.z);
-		printf("jf: (%.2f, %.2f, %.2f) ", jf1.x, jf1.y, jf1.z);
-		printf("\n");
-		**/
-		
-		/* debugging */
-		printf("jf: (%.2f, %.2f, %.2f) ", jf1.x, jf1.y, jf1.z);
-		printf("p(b1): (%.2f, %.2f, %.2f) ", b1->p.x, b1->p.y, b1->p.z);
-		printf("L(b1): (%.2f, %.2f, %.2f) ", b1->L.x, b1->L.y, b1->L.z);
-		printf("r1: (%.2f, %.2f, %.2f)\n", r1.x, r1.y, r1.z);
-		/*
-		printf("p(b2): (%.2f, %.2f, %.2f) ", b2->p.x, b2->p.y, b2->p.z);
-		printf("L(b2): (%.2f, %.2f, %.2f)\n", b2->L.x, b2->L.y, b2->L.z);
-		*/
-	
-		/* Apply friction impulses */
-		b1->p = Vector3Add(b1->p, jf1);
-		b1->L = Vector3Add(b1->L, X(r1, jf1));
-		b2->p = Vector3Add(b2->p, jf2);
-		b2->L = Vector3Add(b2->L, X(r2, jf2));
-	}
 
 	/* Apply collision impulses */
 	b1->p = Vector3Add(b1->p, dp1);
@@ -620,10 +529,12 @@ rbp_resolve_collision(rbp_contact *c, float dt)
 	b2->L = Vector3Add(b2->L, dL2);
 
 	/* Apply damping impulses */
+	/*
 	b1->p = Vector3Scale(b1->p, df1);
 	b1->L = Vector3Scale(b1->L, df1);
 	b2->p = Vector3Scale(b2->p, df2);
 	b2->L = Vector3Scale(b2->L, df2);
+	*/
 
 	/* Adjust positions to eliminate penetration */
 	Vector3 ds1 = Vector3Scale(cn, depth*m1inv / minv);
