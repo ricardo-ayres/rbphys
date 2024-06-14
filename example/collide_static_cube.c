@@ -23,7 +23,7 @@ int main()
 	rbp_body ball;
 	ball.m = 1.0f;
 	ball.Ib = MatrixIdentity();
-	ball.pos = (Vector3) {0.0f, 1.0f, -9.0f};
+	ball.pos = (Vector3) {0.0f, 1.1f, -9.0f};
 	ball.p = (Vector3) {0.0f, 0.0f, 15.5f};
 	ball.dir = QuaternionIdentity();
 	ball.L = (Vector3) {-16.0f, 0.0f, 0.0f};

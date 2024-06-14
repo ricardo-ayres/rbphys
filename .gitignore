@@ -5,5 +5,6 @@ orbit
 heightmap
 collide_sphere
 collide_cube
+collide_cube_corner
 collide_static_cube
 bounce_ball
