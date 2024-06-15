@@ -460,12 +460,10 @@ rbp_resolve_collision(rbp_contact *c, float dt)
 	float e = c->e;
 	float uf_s = c->uf_s;
 	float uf_d = c->uf_d;
-	float df1 = c->df1;
-	float df2 = c->df2;
+	//float df1 = c->df1;
+	//float df2 = c->df2;
 
 	/* Unpack b1 and b2 */
-	float m1 = b1->m;
-	float m2 = b2->m;
 	float m1inv = b1->minv;
 	float m2inv = b2->minv;
 	Matrix Ib1inv = b1->Ibinv;
@@ -478,51 +476,77 @@ rbp_resolve_collision(rbp_contact *c, float dt)
 	Vector3 vp1 = Vector3Add(rbp_v(b1), X(rbp_w(b1), r1));
 	Vector3 vp2 = Vector3Add(rbp_v(b2), X(rbp_w(b2), r2));
 	Vector3 vr = Vector3Subtract(vp2, vp1);
-	Vector3 vrn = Vector3Scale(cn, DOT(vr, cn));
-	Vector3 vrt = Vector3Subtract(vr, vrn);
-	Vector3 tg = Vector3Normalize(vrt);
+	Vector3 tg = Vector3Normalize(X(X(cn, vr), cn));
+
+	float vrn = DOT(vr, cn);
+	float vrt = DOT(vr, tg);
+	/* debugging
+	printf("vr: (%.2f, %.2f, %.2f) ", vr.x, vr.y, vr.z);
+	printf("cn: (%.2f, %.2f, %.2f) ", cn.x, cn.y, cn.z);
+	printf("tg: (%.2f, %.2f, %.2f)\n", tg.x, tg.y, tg.z);
+	*/
 
 	/* As the normal vector (cn) is always in the
-	 * direction 1->2, if  DOT(vr, cn) is non-negative, then the bodies
+	 * direction 1->2, if vrn is non-negative, then the bodies
 	 * are at rest or receding */
-	if (DOT(vr, cn) >= 0) {
-		/* bail out if objects are receding */
+	if (vrn >= 0) {
+		/* bail out early if objects are receding */
 		return;
 	}
 
-	/* debugging
-	Vector3 vb2 = rbp_v(b2);
-	Vector3 wb2 = rbp_w(b2);
-	printf("r2:(%.2f, %.2f, %.2f) ", r2.x, r2.y, r2.z);
-	printf("v(b2): (%.2f, %.2f, %.2f) ", vb2.x, vb2.y, vb2.z);
-	printf("w(b2): (%.2f, %.2f, %.2f) ", wb2.x, wb2.y, wb2.z);
-	printf("vp2: (%.2f, %.2f, %.2f)\n", vp2.x, vp2.y, vp2.z);
-	*/
-
-	/* Calculate jr */
+	/* Calculate jrn (normal direction impulses) */
 	float minv = m1inv + m2inv;
-	Vector3 vr_rot1 = MatrixVector3Multiply(Ib1inv, X(X(r1, cn),r1)); 
-	Vector3 vr_rot2 = MatrixVector3Multiply(Ib2inv, X(X(r2, cn),r2));
-	Vector3 vr_rot = Vector3Add(vr_rot1, vr_rot2);
-	float jr_bot = minv + DOT(vr_rot, cn);
-	float jr_top = DOT(Vector3Scale(vr, -(1.0f+e)), cn);
-	float jr = jr_top / jr_bot;
+	Vector3 vrn_rot1 = MatrixVector3Multiply(Ib1inv, X(X(r1, cn), r1)); 
+	Vector3 vrn_rot2 = MatrixVector3Multiply(Ib2inv, X(X(r2, cn), r2));
+	Vector3 vrn_rot = Vector3Add(vrn_rot1, vrn_rot2);
+	float jrn_bot = minv + DOT(vrn_rot, cn);
+	float jrn_top = -(1.0f+e)*vrn;
+	float jrn = jrn_top / jrn_bot;
 
-	/* Calculate friction */
-	/* For static friction we have to determine the impulse js required to
-	 * make vrt = 0 and see if js <= jr*uf_s. If yes, apply js in the normal
-	 * direction to both bodies. Else, check if js <= jr*uf_d and apply the
-	 * smaller value in the normal direction to both bodies */
-	float js;
-	
 
-	/* Apply impulses */
-	Vector3 dp1 = Vector3Scale(cn, -1.0f*jr);
-	Vector3 dp2 = Vector3Scale(cn, +1.0f*jr);
-	Vector3 dL1 = Vector3Scale(X(r1, cn), -1.0f*jr);
-	Vector3 dL2 = Vector3Scale(X(r2, cn), +1.0f*jr);
+	/* Calculate normal impulses */
+	Vector3 dp1 = Vector3Scale(cn, -1.0f*jrn);
+	Vector3 dp2 = Vector3Scale(cn, +1.0f*jrn);
+	Vector3 dL1 = Vector3Scale(X(r1, cn), -1.0f*jrn);
+	Vector3 dL2 = Vector3Scale(X(r2, cn), +1.0f*jrn);
 
-	/* Apply collision impulses */
+	/* Skip friction calculation if the tangent velocity is zero */
+	if (vrt != 0.0f) {
+		/* Calculate friction impulse */
+		Vector3 vrt_rot1 = MatrixVector3Multiply(Ib1inv, X(X(r1, tg), r1)); 
+		Vector3 vrt_rot2 = MatrixVector3Multiply(Ib2inv, X(X(r2, tg), r2));
+		Vector3 vrt_rot = Vector3Add(vrt_rot1, vrt_rot2);
+		float jrt_bot = minv + DOT(vrt_rot, tg);
+		float jrt_top = vrt;
+		float jrt = jrt_top / jrt_bot;
+
+		if (jrt > jrn*uf_s) {
+			/* dynamic friction */
+			jrt = jrn*uf_d;
+
+			/* debugging
+			printf("dynamic: %.4f \n", jrt);
+			*/
+		}
+		/* debugging
+		else { printf("static: %.4f \n", jrt); }
+		*/
+
+		/* static friction, just apply jf as calculated */
+		/* Calculate tangent impulses */
+		Vector3 dpf1 = Vector3Scale(tg, +1.0f*jrt);
+		Vector3 dpf2 = Vector3Scale(tg, -1.0f*jrt);
+		Vector3 dLf1 = Vector3Scale(X(r1, tg), +1.0f*jrt);
+		Vector3 dLf2 = Vector3Scale(X(r2, tg), -1.0f*jrt);
+
+		/* Apply friction (tangent) impulses */
+		b1->p = Vector3Add(b1->p, dpf1);
+		b1->L = Vector3Add(b1->L, dLf1);
+		b2->p = Vector3Add(b2->p, dpf2);
+		b2->L = Vector3Add(b2->L, dLf2);
+	}
+
+	/* Apply collision (normal) impulses */
 	b1->p = Vector3Add(b1->p, dp1);
 	b1->L = Vector3Add(b1->L, dL1);
 	b2->p = Vector3Add(b2->p, dp2);
@@ -537,9 +561,9 @@ rbp_resolve_collision(rbp_contact *c, float dt)
 	*/
 
 	/* Adjust positions to eliminate penetration */
-	Vector3 ds1 = Vector3Scale(cn, depth*m1inv / minv);
-	Vector3 ds2 = Vector3Scale(cn, depth*m2inv / minv);
-	b1->pos = Vector3Subtract(b1->pos, ds1);
+	Vector3 ds1 = Vector3Scale(cn, -1.0f*depth*m1inv / minv);
+	Vector3 ds2 = Vector3Scale(cn, +1.0f*depth*m2inv / minv);
+	b1->pos = Vector3Add(b1->pos, ds1);
 	b2->pos = Vector3Add(b2->pos, ds2);
 }
 
