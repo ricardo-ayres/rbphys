@@ -33,7 +33,6 @@ int main()
 		0.99f,
 		0.20f,
 		0.10f,
-		1.00f,
 		1.0f};
 	planet.collider = &planet_collider;
 	rbp_calculate_properties(&planet);
@@ -51,7 +50,6 @@ int main()
 		0.99f, 
 		0.20f, 
 		0.10f, 
-		1.00f,
 		5.0f};
 	sun.collider = &sun_collider;
 	rbp_calculate_properties(&sun);

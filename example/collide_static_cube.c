@@ -6,7 +6,7 @@
 
 int main()
 {
-	InitWindow(640, 480, "rbphys");
+	InitWindow(800, 600, "rbphys");
 
 	SetTargetFPS(120.0);
 	float dt = 1.0 / 60.0;
@@ -28,15 +28,25 @@ int main()
 	ball.dir = QuaternionIdentity();
 	ball.L = (Vector3) {-16.0f, 0.0f, 0.0f};
 	rbp_collider_sphere ball_collider ={
-		SPHERE,
-		{0.0f, 0.0f, 0.0f},
-		0.90f,
-		0.6f,
-		0.3f,
-		1.0f,
-		1.0f};
+		.collider_type = SPHERE,
+		.offset = (Vector3) {0.0f, 0.0f, 0.0f},
+		.e = 0.90f,
+		.uf_s = 0.6f,
+		.uf_d = 0.3f,
+		.radius = 1.0f};
 	ball.collider = &ball_collider;
 	rbp_calculate_properties(&ball);
+
+	rbp_body ball1 = ball;
+	rbp_body ball2 = ball;
+
+	ball1.pos = (Vector3) {-6.0f, 1.1f, -9.0f};
+	ball1.L = (Vector3) {-25.0f, 0.0f, 0.0f};
+
+	ball2.pos = (Vector3) {+6.0f, 1.1f, -9.0f};
+	ball2.L = (Vector3) {-9.0f, 0.0f, 0.0f};
+
+	rbp_body *balls[] = {&ball, &ball1, &ball2};
 
 	rbp_body slab;
 	slab.m = 0.0f; /* static body */
@@ -45,18 +55,17 @@ int main()
 	slab.dir = QuaternionIdentity();
 	slab.L = (Vector3) {0.0f, 0.0f, 0.0f};
 	rbp_collider_cuboid slab_collider = {
-		CUBOID,
-		{0.0f,0.0f,0.0f},
-		0.90f,
-		1.0f,
-		1.0f,
-		0.99f,
-		QuaternionIdentity(),
-		50.0f,
-		2.0f,
-		50.0f};
+		.collider_type = CUBOID,
+		.offset = (Vector3) {0.0f,0.0f,0.0f},
+		.e = 0.90f,
+		.uf_s = 1.0f,
+		.uf_d = 1.0f,
+		.dir = QuaternionIdentity(),
+		.xsize = 50.0f,
+		.ysize = 2.0f,
+		.zsize = 50.0f};
 	slab.collider = &slab_collider;
-	rbp_calculate_properties(&ball);
+	rbp_calculate_properties(&slab);
 
 	Camera3D camera = { 0 };
 	camera.position = (Vector3) {50.0f, 40.0f, 0.0f};
@@ -68,19 +77,8 @@ int main()
 	double now;
 	double time = GetTime();
 	float time_pool = 0.0f;
-
-	struct trajectory {
-		Vector3 *p;
-		struct trajectory *next;
-	};
-
-	int trj_max = 4096;
-	unsigned int trj_counter = 0;
-	unsigned int trj_len = 0;
-	Vector3 trj[trj_max];
-	trj[0] = ball.pos;
-
-	Vector3 g = (Vector3) {0.0f, -10.0f/ball.minv, 0.0f};
+	
+	Vector3 g = (Vector3) {0.0f, -10.0f, 0.0f};
 	rbp_contact contact;
 	while(!WindowShouldClose()) {
 		/* Update physics */
@@ -90,27 +88,23 @@ int main()
 
 		while (time_pool >= dt) {
 			/* Update positions */
-			rbp_update(&ball, dt);
-			//rbp_update(&slab, dt);
+
 			time_pool -= dt;
 
-			/* Check collisions, reset ball if hit */
-			if (rbp_collide(&slab, &ball, &contact)) {
-			//if (rbp_collide(&ball, &slab, &contact)) {
-				rbp_resolve_collision(&contact, dt);
-			}
+			for (int i=0; i<3; i++) {
+				rbp_body *b = balls[i];
+				rbp_update(b, dt);
+				if (rbp_collide(&slab, b, &contact)) {
+					rbp_resolve_collision(&contact, dt);
+				}
 
-			/* Apply forces */
-			rbp_wspace_force(&ball, g, ball.pos, dt);
+				/* Apply forces */
+				rbp_wspace_force(b, g, b->pos, dt);
+			}
 		}
 
-		/* Update trajectory trace */
-		trj_counter = (trj_counter + 1) % trj_max;
-		trj[trj_counter] = ball.pos;
-		trj_len = trj_len < trj_max ? trj_len+1 : trj_max;
-
 		/* Update model and camera */
-		ball_model.transform = QuaternionToMatrix(ball.dir);
+		//ball_model.transform = QuaternionToMatrix(ball.dir);
 		slab_model.transform = QuaternionToMatrix(slab.dir);
 		UpdateCamera(&camera, CAMERA_FREE);
 
@@ -118,13 +112,12 @@ int main()
 		BeginDrawing();
 		ClearBackground(RAYWHITE);
 			BeginMode3D(camera);
-				DrawGrid(1000.0, 1.0f);
-				for (int i=0; i<trj_len-1; i++) {
-					if (i != trj_counter)
-						DrawLine3D(trj[i], trj[i+1], RED);
-				}
 				DrawModel(slab_model, slab.pos, 1.0f, RED);
-				DrawModel(ball_model, ball.pos, 1.0f, WHITE);
+				for (int i=0; i<3; i++) {
+					rbp_body *b = balls[i];
+					ball_model.transform = QuaternionToMatrix(b->dir);
+					DrawModel(ball_model, b->pos, 1.0f, WHITE);
+				}
 			EndMode3D();
 			DrawFPS(1,1);
 		EndDrawing();

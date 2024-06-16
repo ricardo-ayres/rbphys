@@ -33,7 +33,6 @@ int main()
 		0.90f,
 		0.4f,
 		0.3f,
-		0.999f,
 		1.0f};
 	planet.collider = &planet_collider;
 	rbp_calculate_properties(&planet);
@@ -51,7 +50,6 @@ int main()
 		0.90f,
 		0.4f,
 		0.3f,
-		0.999f,
 		QuaternionIdentity(),
 		10.0f,
 		10.0f,

@@ -47,7 +47,6 @@ typedef enum {
  * e = partial coefficient of restitution;
  * uf_s = coefficient of friction (static);
  * uf_d = coefficient of friction (dynamic);
- * df = damping factor for collisions with friction;
  */
 typedef struct rbp_collider {
 #define \
@@ -56,8 +55,7 @@ typedef struct rbp_collider {
 	Vector3 offset; \
 	float e; \
 	float uf_s; \
-	float uf_d; \
-	float df;
+	float uf_d; 
 
 	RBP_COLLIDER_PROPS
 } rbp_collider;
@@ -124,8 +122,6 @@ typedef struct rbp_contact {
 	 * e = coefficient of restitution of the collision
 	 * uf_s = coefficient of friction (static)
 	 * uf_d = coefficient of friction (dynamic)
-	 * df1 = damping factor for friction collisions, b1
-	 * df2 = damping factor for friction collisions, b2
 	 */
 	rbp_body *b1;
 	rbp_body *b2;
@@ -136,8 +132,6 @@ typedef struct rbp_contact {
 	float e;
 	float uf_s;
 	float uf_d;
-	float df1;
-	float df2;
 } rbp_contact;
 
 /* Additional math functions */
@@ -302,8 +296,6 @@ rbp_collide_sphere_sphere(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 	c->e= c1->e * c2->e;
 	c->uf_s = c1->uf_s + c2->uf_s;
 	c->uf_d = c1->uf_d + c2->uf_d;
-	c->df1 = c1->df;
-	c->df2 = c2->df;
 	return 1;
 }
 
@@ -460,8 +452,6 @@ rbp_resolve_collision(rbp_contact *c, float dt)
 	float e = c->e;
 	float uf_s = c->uf_s;
 	float uf_d = c->uf_d;
-	//float df1 = c->df1;
-	//float df2 = c->df2;
 
 	/* Unpack b1 and b2 */
 	float m1inv = b1->minv;
@@ -480,11 +470,6 @@ rbp_resolve_collision(rbp_contact *c, float dt)
 
 	float vrn = DOT(vr, cn);
 	float vrt = DOT(vr, tg);
-	/* debugging
-	printf("vr: (%.2f, %.2f, %.2f) ", vr.x, vr.y, vr.z);
-	printf("cn: (%.2f, %.2f, %.2f) ", cn.x, cn.y, cn.z);
-	printf("tg: (%.2f, %.2f, %.2f)\n", tg.x, tg.y, tg.z);
-	*/
 
 	/* As the normal vector (cn) is always in the
 	 * direction 1->2, if vrn is non-negative, then the bodies
@@ -512,7 +497,7 @@ rbp_resolve_collision(rbp_contact *c, float dt)
 
 	/* Skip friction calculation if the tangent velocity is zero */
 	if (vrt != 0.0f) {
-		/* Calculate friction impulse */
+		/* Calculate impulse to eliminate relative tangential velocities */
 		Vector3 vrt_rot1 = MatrixVector3Multiply(Ib1inv, X(X(r1, tg), r1)); 
 		Vector3 vrt_rot2 = MatrixVector3Multiply(Ib2inv, X(X(r2, tg), r2));
 		Vector3 vrt_rot = Vector3Add(vrt_rot1, vrt_rot2);
@@ -520,19 +505,14 @@ rbp_resolve_collision(rbp_contact *c, float dt)
 		float jrt_top = vrt;
 		float jrt = jrt_top / jrt_bot;
 
+		/* Compare jrt to the maximum static friction impulse */
 		if (jrt > jrn*uf_s) {
-			/* dynamic friction */
+			/* Static friction can't eliminate sliding, so we
+			 * apply the dynamic friction impulse */
 			jrt = jrn*uf_d;
-
-			/* debugging
-			printf("dynamic: %.4f \n", jrt);
-			*/
 		}
-		/* debugging
-		else { printf("static: %.4f \n", jrt); }
-		*/
-
-		/* static friction, just apply jf as calculated */
+		/* jrt is smaller than the maximum static friction
+		 * we just need to apply jrt as calculated to eliminate sliding */
 		/* Calculate tangent impulses */
 		Vector3 dpf1 = Vector3Scale(tg, +1.0f*jrt);
 		Vector3 dpf2 = Vector3Scale(tg, -1.0f*jrt);
@@ -551,14 +531,6 @@ rbp_resolve_collision(rbp_contact *c, float dt)
 	b1->L = Vector3Add(b1->L, dL1);
 	b2->p = Vector3Add(b2->p, dp2);
 	b2->L = Vector3Add(b2->L, dL2);
-
-	/* Apply damping impulses */
-	/*
-	b1->p = Vector3Scale(b1->p, df1);
-	b1->L = Vector3Scale(b1->L, df1);
-	b2->p = Vector3Scale(b2->p, df2);
-	b2->L = Vector3Scale(b2->L, df2);
-	*/
 
 	/* Adjust positions to eliminate penetration */
 	Vector3 ds1 = Vector3Scale(cn, -1.0f*depth*m1inv / minv);
