@@ -169,8 +169,9 @@ rbp_calculate_properties(rbp_body *b)
 	if (b->m == 0.0f) {
 		/* static body */
 		b->minv = 0.0f;
-		b->Ibinv = MatrixScale(0.0f, 0.0f, 0.0f);
-		b->Ibinv.m15 = 1.0f;
+		b->Ib = MatrixScale(0.0f, 0.0f, 0.0f);
+		b->Ibinv = b->Ib;
+		return;
 	}
 	/* dynamic body */
 	b->minv = 1.0f/b->m;
@@ -229,6 +230,10 @@ rbp_rotate(rbp_body *b, float dt)
 void
 rbp_update(rbp_body *b, float dt)
 {
+	if (b->m == 0.0f) {
+		/* static body, skip update */
+		return;
+	}
 	b->pos = rbp_displace(b, dt);
 	b->dir = rbp_rotate(b, dt);
 }
