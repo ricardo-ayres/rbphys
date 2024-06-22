@@ -28,57 +28,6 @@ rbphys is a simple rigid body physics library based on raymath.
 
 #include <raymath.h>
 
-/* Shorthands for raymath functions */
-#define NEG(a) Vector3Negate(a)
-#define DOT(a, b) Vector3DotProduct(a, b)
-#define X(a, b) Vector3CrossProduct(a, b)
-
-/* Collider data types */
-typedef enum {
-	HEIGHTMAP = 0,
-	SPHERE,
-	CUBOID,
-} rbp_collider_type;
-
-/*  This is the 'parent' struct that should be 'inherited' by all collider
- * types.
- * collider_type = shape of the collider;
- * offset = position of the collider relative to body position;
- * e = partial coefficient of restitution;
- * uf_s = coefficient of friction (static);
- * uf_d = coefficient of friction (dynamic);
- */
-typedef struct rbp_collider {
-#define \
-	RBP_COLLIDER_PROPS \
-	rbp_collider_type collider_type; \
-	Vector3 offset; \
-	float e; \
-	float uf_s; \
-	float uf_d; 
-
-	RBP_COLLIDER_PROPS
-} rbp_collider;
-
-typedef struct rbp_collider_sphere {
-	RBP_COLLIDER_PROPS /* inherit from rbp_collider */
-
-	float radius;
-} rbp_collider_sphere;
-
-typedef struct rbp_collider_cuboid {
-	RBP_COLLIDER_PROPS /* inherit from rbp_collider */
-
-	Quaternion dir;
-	float xsize;
-	float ysize;
-	float zsize;
-} rbp_collider_cuboid;
-
-typedef struct rbp_collider_heightmap {
-	RBP_COLLIDER_PROPS /* inherit from rbp_collider */
-} rbp_collider_heightmap;
-
 /* Body data type */
 typedef struct rbp_body {
 	/* Mass, and its inverse, inertia tensor and its inverse in body space */
@@ -99,17 +48,58 @@ typedef struct rbp_body {
 	Quaternion dir;
 	Vector3 L;
 
-	/* Function pointer to support-mapping for collision detection
-	 * Attention: must return support points in world space! */
-	/* Vector3 (*support)(struct rbp_body *self, Vector3 direction); */
-
 	/* Pointer to a body collider */
 	void *collider;
 } rbp_body;
 
-/* Ditching gjk and mpr in favor of a simple analytical collision system */
-/* #include "rbp-gjk.h" */
-/* #include "rbp-mpr.h" */
+/* Collider data types */
+typedef enum {
+	HEIGHTMAP = 0,
+	SPHERE,
+	CUBOID,
+} rbp_collider_type;
+
+/*  This is the 'parent' struct that should be 'inherited' by all collider
+ * types.
+ * collider_type = shape of the collider;
+ * support = pointer to the support function, returns a point in world space;
+ * offset = position of the collider relative to body position;
+ * e = partial coefficient of restitution;
+ * uf_s = coefficient of friction (static);
+ * uf_d = coefficient of friction (dynamic);
+ */
+typedef struct rbp_collider rbp_collider;
+struct rbp_collider {
+#define \
+	RBP_COLLIDER_PROPS \
+	rbp_collider_type collider_type; \
+	Vector3 (*support)(rbp_collider*, Vector3); \
+	Vector3 offset; \
+	float e; \
+	float uf_s; \
+	float uf_d; 
+
+	RBP_COLLIDER_PROPS
+};
+
+typedef struct rbp_collider_sphere {
+	RBP_COLLIDER_PROPS /* inherit from rbp_collider */
+
+	float radius;
+} rbp_collider_sphere;
+
+typedef struct rbp_collider_cuboid {
+	RBP_COLLIDER_PROPS /* inherit from rbp_collider */
+
+	Quaternion dir;
+	float xsize;
+	float ysize;
+	float zsize;
+} rbp_collider_cuboid;
+
+typedef struct rbp_collider_heightmap {
+	RBP_COLLIDER_PROPS /* inherit from rbp_collider */
+} rbp_collider_heightmap;
 
 /* Collision contact data type */
 typedef struct rbp_contact {
@@ -134,7 +124,17 @@ typedef struct rbp_contact {
 	float uf_d;
 } rbp_contact;
 
+/* Ditching gjk and mpr in favor of a simple analytical collision system */
+/* #include "rbp-gjk.h" */
+#include "rbp-mpr.h"
+
+
 /* Additional math functions */
+/* Shorthands for raymath functions */
+#define NEG(a) Vector3Negate(a)
+#define DOT(a, b) Vector3DotProduct(a, b)
+#define X(a, b) Vector3CrossProduct(a, b)
+
 Vector4
 MatrixVectorMultiply(Matrix m, Vector4 v)
 {
@@ -271,14 +271,14 @@ rbp_bspace_force(rbp_body *b, Vector3 force, Vector3 pos, float dt)
 
 /* Collision functions */
 int
-rbp_collide_sphere_sphere(rbp_body *b1, rbp_body *b2, rbp_contact *c)
+rbp_collide_sphere_sphere(rbp_contact *c)
 {
-	rbp_collider_sphere *c1 = b1->collider;
-	rbp_collider_sphere *c2 = b2->collider;
+	rbp_collider_sphere *c1 = c->b1->collider;
+	rbp_collider_sphere *c2 = c->b2->collider;
 	float r1 = c1->radius;
 	float r2 = c2->radius;
-	Vector3 pos1 = Vector3Add(b1->pos, c1->offset);
-	Vector3 pos2 = Vector3Add(b2->pos, c2->offset);
+	Vector3 pos1 = Vector3Add(c->b1->pos, c1->offset);
+	Vector3 pos2 = Vector3Add(c->b2->pos, c2->offset);
 
 	Vector3 cn = Vector3Subtract(pos2, pos1); /* vector from center to center */
 	float center_distance = Vector3Length(cn);
@@ -293,8 +293,6 @@ rbp_collide_sphere_sphere(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 	/* Hit! Calculate contact, update c and return 1 */
 	cn = Vector3Normalize(cn);
 	c->cn = cn;
-	c->b1 = b1;
-	c->b2 = b2;
 	c->depth = depth;
 	c->p1 = Vector3Add(pos1, Vector3Scale(cn, +1.0f*r1));
 	c->p2 = Vector3Add(pos2, Vector3Scale(cn, -1.0f*r2));
@@ -305,16 +303,16 @@ rbp_collide_sphere_sphere(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 }
 
 int
-rbp_collide_sphere_cuboid(rbp_body *b1, rbp_body *b2, rbp_contact *c)
+rbp_collide_sphere_cuboid(rbp_contact *c)
 {
-	rbp_collider_sphere *c1 = b1->collider;
-	rbp_collider_cuboid *c2 = b2->collider;
+	rbp_collider_sphere *c1 = c->b1->collider;
+	rbp_collider_cuboid *c2 = c->b2->collider;
 
-	Vector3 pos1 = Vector3Add(b1->pos, c1->offset);
+	Vector3 pos1 = Vector3Add(c->b1->pos, c1->offset);
 	float radius = c1->radius;
 
-	Vector3 pos2 = Vector3Add(b2->pos, c2->offset);
-	Quaternion dir2 = QuaternionMultiply(c2->dir, b2->dir);
+	Vector3 pos2 = Vector3Add(c->b2->pos, c2->offset);
+	Quaternion dir2 = QuaternionMultiply(c2->dir, c->b2->dir);
 	dir2 = QuaternionNormalize(dir2);
 	float xsize = c2->xsize * 0.5;
 	float ysize = c2->ysize * 0.5;
@@ -345,8 +343,6 @@ rbp_collide_sphere_cuboid(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 	c->cn = Vector3Normalize(cn);
 	c->depth = depth;
 	c->p2 = p2;
-	c->b1 = b1;
-	c->b2 = b2;
 	c->e = c1->e * c2->e;
 	c->uf_s = c1->uf_s + c2->uf_s;
 	c->uf_d = c1->uf_d + c2->uf_d;
@@ -362,9 +358,13 @@ rbp_collide_sphere_cuboid(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 }
 
 int
-rbp_collide_cuboid_cuboid(rbp_body *b1, rbp_body *b2, rbp_contact *c)
+rbp_collide_cuboid_cuboid(rbp_contact *c)
 {
 	/* IMPLEMENT */
+	if (rbp_mpr(c)) {
+		printf("COLLISION\n");
+	}
+
 	return 0;
 }
 
@@ -384,23 +384,20 @@ rbp_collide_cuboid_heightmap()
 }
 
 int
-rbp_collide(rbp_body *b1, rbp_body *b2, rbp_contact *c)
+rbp_collide(rbp_contact *c)
 {
-	rbp_body *a;
-	rbp_body *b;
-	int (*collide)(rbp_body*, rbp_body*, rbp_contact*);
+	int (*collide)(rbp_contact*);
 
-	rbp_collider *ca = (rbp_collider *) b1->collider;
-	rbp_collider *cb = (rbp_collider *) b2->collider;
+	rbp_collider *ca = (rbp_collider *) c->b1->collider;
+	rbp_collider *cb = (rbp_collider *) c->b2->collider;
 	rbp_collider_type a_type = ca->collider_type;
 	rbp_collider_type b_type = cb->collider_type;
 
 	/* Ensure smallest collider_type goes in as b1 */
-	a = b1;
-	b = b2;
 	if (a_type > b_type) {
-		a = b2;
-		b = b1;
+		rbp_body *b = c->b1;
+		c->b1 = c->b2;
+		c->b2 = b;
 
 		rbp_collider_type tmp = a_type;
 		a_type = b_type;
@@ -440,7 +437,7 @@ rbp_collide(rbp_body *b1, rbp_body *b2, rbp_contact *c)
 	default: return 0;
 	}
 
-	return collide(a, b, c);
+	return collide(c);
 }
 
 /* Collision resolution */

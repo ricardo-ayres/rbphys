@@ -28,12 +28,12 @@ int main()
 	planet.dir = QuaternionIdentity();
 	planet.L = (Vector3) {0.0f, 0.0f, 0.0f};
 	rbp_collider_sphere planet_collider ={
-		SPHERE,
-		{0.0f, 0.0f, 0.0f},
-		0.90f,
-		0.4f,
-		0.3f,
-		1.0f};
+		.collider_type = SPHERE,
+		.offset = Vector3Zero(),
+		.e = 0.90f,
+		.uf_s = 0.4f,
+		.uf_d = 0.3f,
+		.radius = 1.0f};
 	planet.collider = &planet_collider;
 	rbp_calculate_properties(&planet);
 
@@ -45,15 +45,15 @@ int main()
 	sun.dir = QuaternionIdentity();
 	sun.L = (Vector3) {0.0f, 2.0f, 0.0f};
 	rbp_collider_cuboid sun_collider = {
-		CUBOID,
-		{0.0f,0.0f,0.0f},
-		0.90f,
-		0.4f,
-		0.3f,
-		QuaternionIdentity(),
-		10.0f,
-		10.0f,
-		10.0f};
+		.collider_type = CUBOID,
+		.offset = Vector3Zero(),
+		.e = 0.90f,
+		.uf_s = 0.4f,
+		.uf_d = 0.3f,
+		.dir = QuaternionIdentity(),
+		.xsize = 10.0f,
+		.ysize = 10.0f,
+		.zsize = 10.0f};
 	sun.collider = &sun_collider;
 	rbp_calculate_properties(&sun);
 
@@ -98,7 +98,9 @@ int main()
 			time_pool -= dt;
 
 			/* Check collisions, reset planet if hit */
-			if (rbp_collide(&planet, &sun, &contact)) {
+			contact.b1 = &planet;
+			contact.b2 = &sun;
+			if (rbp_collide(&contact)) {
 				rbp_resolve_collision(&contact, dt);
 			}
 		}

@@ -1,7 +1,7 @@
 /* MPR Collision detection for rbphys */
 typedef struct rbp_portal {
 	Vector3 V; /* V is V0, deep within the minkowski difference */
-	Vector3 Oray; /* Oray is V-O, the ray from V0 to the origin */
+	Vector3 Oray; /* Oray is O-V, the ray from V0 to the origin */
 	Vector3 A;
 	Vector3 B;
 	Vector3 C;
@@ -16,11 +16,11 @@ typedef struct rbp_portal {
 #define X3(a, b) Vector3CrossProduct(Vector3CrossProduct(a, b), a)
 #define NORM(a, b, c) X(SUB(b, a), SUB(c, a))
 
-/* Calls the support-mappings from each body and returns the
+/* Calls the support-mappings from each collider and returns the
  * minkowski difference.
  */
 Vector3
-rbp_support(rbp_body *a, rbp_body *b, Vector3 d)
+rbp_support(rbp_collider *a, rbp_collider *b, Vector3 d)
 {
 	Vector3 sa = a->support(a, d);
 	Vector3 sb = b->support(b, NEG(d));
@@ -53,8 +53,12 @@ rbp_ray_triangle_test(Vector3 A, Vector3 B, Vector3 C, Vector3 o, Vector3 u)
 }
 
 int
-rbp_mpr(rbp_body *b1, rbp_body *b2)
+rbp_mpr(rbp_contact *c)
 {
+	rbp_body *b1 = c->b1;
+	rbp_body *b2 = c->b2;
+	rbp_collider *c1 = b1->collider;
+	rbp_collider *c2 = b2->collider;
 	rbp_portal p;
 	Vector3 dir;
 	Vector3 Z;
@@ -63,29 +67,33 @@ rbp_mpr(rbp_body *b1, rbp_body *b2)
 	/* Define a line from deep within the minkowski difference and get
 	 * a support in the direction pointing to the origin */
 	p.V = SUB(b1->pos, b2->pos);
-	p.Oray = NEG(p.V); /* V-O, the direction from V to the origin */
-	p.A = rbp_support(b1, b2, p.Oray);
+	p.Oray = NEG(p.V); /* O-V, the direction from V to the origin */
+	p.A = rbp_support(c1, c2, p.Oray);
 
 	/* Find the direction orthogonal to VA that points to the origin */
-	dir = X3(SUB(p.A, p.V), p.Oray);
-	p.B = rbp_support(b1, b2, dir);
+	dir = X3(p.Oray, SUB(p.A, p.V));
+	if (DOT(dir, p.Oray) < 0.0f) {
+		/* Wrong direction, flip */
+		dir = NEG(dir);
+	}
+	p.B = rbp_support(c1, c2, dir);
 
 	/* Now VAB defines a triangle, find the normal that points towards the
 	 * origin and get the final support that will define our initial
 	 * portal ABC. */
 	dir = NORM(p.A, p.B, p.V);
-	if (DOT(dir, p.Oray) < 0) {
+	if (DOT(dir, p.Oray) < 0.0f) {
 		/* origin is on the other side, flip. */
 		dir = NEG(dir);
 	}
-	p.C = rbp_support(b1, b2, dir);
+	p.C = rbp_support(c1, c2, dir);
 	/* Initial portal "ABC" is complete */
 
 	/* Phase 2: Portal refinement */
 	while (1) {
 		/* Check wether the origin is before or beyond the portal. */
 		p.N = NORM(p.A, p.B, p.C);
-		if (DOT(p.N, NEG(p.A)) < 0) {
+		if (DOT(p.N, NEG(p.A)) < 0.0f) {
 			/* origin is behind the portal, return a hit */
 			return 1;
 		}
@@ -93,7 +101,7 @@ rbp_mpr(rbp_body *b1, rbp_body *b2)
 		/* Origin is beyond the portal, get a new support point in the
 		 * direction of the portal normal and see if the origin is beyond
 		 * the plane defined by the new support and the portal normal. */
-		Z = rbp_support(b1, b2, p.N);
+		Z = rbp_support(c1, c2, p.N);
 		dir = NEG(Z); /* ray from X to the origin */
 		if (DOT(dir, p.N) >= 0) {
 			/* origin is beyond the plane, so outside of the minkowski
