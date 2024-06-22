@@ -95,7 +95,7 @@ int main()
 				rbp_body *b = balls[i];
 				rbp_update(b, dt);
 				contact.b1 = &slab;
-				contact..b2 = b;
+				contact.b2 = b;
 				if (rbp_collide(&contact)) {
 					rbp_resolve_collision(&contact, dt);
 				}
